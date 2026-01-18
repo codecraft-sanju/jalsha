@@ -494,11 +494,12 @@ export default function App() {
       <main className="relative pb-0">
         <HeroSection openPartnerModal={() => setPartnerOpen(true)} />
 
-        {/* Marquee */}
+        {/* Marquee - UPDATED: Made faster (duration: 5s) and added transform-gpu for mobile smoothness */}
         <div className="bg-cyan-500 text-slate-950 py-4 overflow-hidden whitespace-nowrap relative z-20 rotate-[-2deg] scale-110 shadow-2xl origin-left my-20 border-y-4 border-slate-950">
           <motion.div 
-            animate={{ x: ["0%", "-50%"] }} transition={{ repeat: Infinity, duration: 15, ease: "linear" }}
-            className="flex gap-12 font-black text-4xl md:text-6xl uppercase tracking-tighter items-center"
+            animate={{ x: ["0%", "-50%"] }} 
+            transition={{ repeat: Infinity, duration: 5, ease: "linear" }} 
+            className="flex gap-12 font-black text-4xl md:text-6xl uppercase tracking-tighter items-center transform-gpu"
           >
             {[1,2,3,4,5,6].map(i => (
               <span key={i} className="flex items-center gap-4">
@@ -543,12 +544,12 @@ export default function App() {
         {/* Trust Stats Section */}
         <section className="py-24 border-y border-white/5 bg-slate-900/40 relative z-10 backdrop-blur-sm">
            <div className="container mx-auto px-6">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-12">
+             <div className="grid grid-cols-2 md:grid-cols-4 gap-12">
                  <StatItem icon={Users} value="120+" label="Active Dealers" />
                  <StatItem icon={Clock} value="24h" label="Dispatch Time" />
                  <StatItem icon={Award} value="ISO" label="Certified Plant" />
                  <StatItem icon={Truck} value="10k+" label="Crates Delivered" />
-              </div>
+             </div>
            </div>
         </section>
 
@@ -697,15 +698,15 @@ const CartDrawer = ({ isOpen, onClose, cart, onCheckout }) => {
                 items.map((item) => (
                   <div key={item.id} className="bg-white/5 p-4 rounded-xl border border-white/5 flex justify-between items-center">
                     <div className="flex items-center gap-4">
-                        <img src={item.img} alt="mini" className="w-8 h-auto object-contain" />
-                        <div>
-                          <div className="font-bold text-white">{item.size}</div>
-                          <div className="text-xs text-cyan-400">{item.quantity} Crates</div>
-                        </div>
+                      <img src={item.img} alt="mini" className="w-8 h-auto object-contain" />
+                      <div>
+                        <div className="font-bold text-white">{item.size}</div>
+                        <div className="text-xs text-cyan-400">{item.quantity} Crates</div>
+                      </div>
                     </div>
                     <div className="text-right">
-                        <div className="text-white font-mono">₹{item.quantity * item.pricePerCrate}</div>
-                        <div className="text-[9px] text-slate-500">{(item.quantity * item.crateSize)} Bottles</div>
+                      <div className="text-white font-mono">₹{item.quantity * item.pricePerCrate}</div>
+                      <div className="text-[9px] text-slate-500">{(item.quantity * item.crateSize)} Bottles</div>
                     </div>
                   </div>
                 ))
