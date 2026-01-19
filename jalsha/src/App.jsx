@@ -5,8 +5,7 @@ import {
   useScroll, 
   useTransform, 
   useSpring, 
-  useMotionValue,
-  useInView
+  useMotionValue
 } from 'framer-motion';
 import { 
   Droplets, X, Menu, 
@@ -14,11 +13,13 @@ import {
   Zap, ChevronDown,
   Facebook, Instagram, Linkedin, Truck, Layers, Calculator,
   Phone, Mail, MapPin, Award, Users, Clock,
-  BarChart3, LayoutDashboard, Settings, LogOut, CheckCircle, AlertCircle,
-  BookOpen, Plus, Minus, Wallet
+  LayoutDashboard, Settings, LogOut, CheckCircle, AlertCircle,
+  BookOpen, Plus, Minus, Wallet, Lock
 } from 'lucide-react';
+import { io } from 'socket.io-client';
 
 // --- CONFIGURATION & ASSETS ---
+const API_URL = "http://localhost:5000"; 
 const IMG_200ML = "./200litre.png"; 
 const IMG_1L = "./1litre.png";
 const IMG_20L = "./20litre.png";
@@ -26,71 +27,44 @@ const IMG_20L = "./20litre.png";
 const WHATSAPP_NUMBER = "919800000000"; 
 const NOISE_BG = "url('https://grainy-gradients.vercel.app/noise.svg')";
 
-// --- INITIAL DATA (DATABASE SIMULATION) ---
-
-// 1. PRODUCTS & STOCK
+// --- 1. RESTORED INITIAL DATA (Fallback for Empty DB) ---
 const INITIAL_PRODUCTS = [
   { 
+    _id: "p1", // Using _id to match MongoDB format
     id: "p1",
     size: "200ml", 
     img: IMG_200ML, 
     crateSize: 30, 
     pricePerCrate: 240, 
-    stock: 500, // Factory Stock
+    stock: 500, 
     desc: "Weddings & Events Preferred", 
     tag: "High Volume" 
   },
   { 
+    _id: "p2",
     id: "p2",
     size: "1 Litre", 
     img: IMG_1L, 
     crateSize: 12, 
     pricePerCrate: 180, 
-    stock: 120, // Factory Stock
+    stock: 120, 
     desc: "Retail & Shop Standard", 
     tag: "Best Seller" 
   },
   { 
+    _id: "p3",
     id: "p3",
     size: "20 Litre", 
     img: IMG_20L, 
     crateSize: 1, 
     pricePerCrate: 60, 
-    stock: 50, // Factory Stock
+    stock: 50, 
     desc: "Office & Home Delivery", 
     tag: "Recurring" 
   },
 ];
 
-// 2. MOCK ORDERS (Previous History)
-const MOCK_ORDERS = [
-  { 
-    id: "#ORD-992", 
-    customer: "Roshni General Store", 
-    items: "12x 1L Crates", 
-    status: "Pending", 
-    total: 2160, 
-    time: "10 mins ago" 
-  },
-  { 
-    id: "#ORD-991", 
-    customer: "Hotel Raj Palace", 
-    items: "50x 200ml Crates", 
-    status: "Dispatched", 
-    total: 12000, 
-    time: "2 hours ago" 
-  },
-];
-
-// 3. DEALERS KHATA (CREDIT BOOK)
-const MOCK_DEALERS = [
-  { id: 1, name: "Roshni General Store", location: "Kota Road", balance: -15000, lastPay: "2 days ago" },
-  { id: 2, name: "Jai Shree Krishna Agency", location: "Market Yard", balance: -2400, lastPay: "Yesterday" },
-  { id: 3, name: "City Mall Food Court", location: "Civil Lines", balance: 0, lastPay: "Paid Full" },
-  { id: 4, name: "Sharma Distributors", location: "Station Road", balance: -45000, lastPay: "1 week ago" },
-];
-
-// --- 1. VISUAL MICRO-COMPONENTS ---
+// --- VISUAL MICRO-COMPONENTS ---
 
 const GrainOverlay = () => (
   <div className="pointer-events-none fixed inset-0 z-[10] opacity-[0.04] mix-blend-overlay" style={{ backgroundImage: NOISE_BG }} />
@@ -100,7 +74,6 @@ const BlurPatch = ({ color = "bg-cyan-500", className }) => (
   <div className={`absolute rounded-full blur-[100px] opacity-20 pointer-events-none ${color} ${className}`} />
 );
 
-// NEW: Reveal Component for Scroll Animations
 const Reveal = ({ children, direction = "up", delay = 0, className = "" }) => {
   const variants = {
     hidden: { 
@@ -153,8 +126,6 @@ const LuxuryButton = ({ children, primary = false, onClick, className = "", icon
   </motion.button>
 );
 
-// --- 2. ANIMATION COMPONENTS ---
-
 const ShimmerHeadline = () => {
   return (
     <div className="relative inline-block">
@@ -200,7 +171,7 @@ const FloatingBubbles = () => {
   );
 };
 
-// --- 3. CUSTOMER UI COMPONENTS ---
+// --- CUSTOMER UI COMPONENTS ---
 
 const MobileDock = ({ itemCount, onOpenCart, onOpenMenu }) => {
   return (
@@ -258,14 +229,13 @@ const ParallaxBottle = () => {
 
 const ProductCard = ({ p, onUpdateCart, cartItem, index }) => {
   const quantity = cartItem ? cartItem.quantity : 0;
+  const productId = p._id || p.id; // Handle both MongoDB _id and local id
   
-  // 3D Tilt Effect
   const x = useMotionValue(0);
   const y = useMotionValue(0);
   const rotateX = useTransform(y, [-100, 100], [30, -30]);
   const rotateY = useTransform(x, [-100, 100], [-30, 30]);
 
-  // Stock Checks
   const isOutOfStock = p.stock <= 0;
   const isLowStock = p.stock < 50;
 
@@ -310,7 +280,7 @@ const ProductCard = ({ p, onUpdateCart, cartItem, index }) => {
            {isOutOfStock && (
               <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-red-500/90 backdrop-blur text-white text-lg font-bold px-6 py-2 rounded-full uppercase tracking-widest z-30 border-2 border-red-400 rotate-[-10deg] shadow-xl">
                Sold Out
-             </span>
+              </span>
            )}
            <div className="absolute bottom-4 left-6 bg-black/40 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-[10px] text-white/70 uppercase tracking-widest">
               1 Crate = {p.crateSize} Units
@@ -336,7 +306,7 @@ const ProductCard = ({ p, onUpdateCart, cartItem, index }) => {
           </div>
           
           <div className="space-y-3">
-             <div className={`flex items-center justify-between bg-slate-950 rounded-xl p-1 border border-white/10 ${isOutOfStock ? 'opacity-50 pointer-events-none' : ''}`}>
+              <div className={`flex items-center justify-between bg-slate-950 rounded-xl p-1 border border-white/10 ${isOutOfStock ? 'opacity-50 pointer-events-none' : ''}`}>
                 <button 
                   onClick={handleDecrement}
                   className="w-12 h-12 flex items-center justify-center text-white hover:bg-white/10 rounded-lg transition-colors"
@@ -349,12 +319,12 @@ const ProductCard = ({ p, onUpdateCart, cartItem, index }) => {
                   onClick={handleIncrement}
                   className="w-12 h-12 flex items-center justify-center text-white bg-cyan-600 hover:bg-cyan-500 rounded-lg transition-colors shadow-lg shadow-cyan-500/20"
                 > + </button>
-             </div>
-             {quantity > 0 && (
+              </div>
+              {quantity > 0 && (
                 <div className="text-center text-[11px] text-cyan-400/80 tracking-wide animate-pulse">
                   Total Bottles: {quantity * p.crateSize}
                 </div>
-             )}
+              )}
           </div>
         </div>
       </motion.div>
@@ -362,7 +332,7 @@ const ProductCard = ({ p, onUpdateCart, cartItem, index }) => {
   );
 };
 
-// --- 4. ADMIN PANEL COMPONENTS (FULL FEATURES) ---
+// --- ADMIN PANEL COMPONENTS ---
 
 const NavButton = ({ icon: Icon, label, active, onClick, count }) => (
   <button onClick={onClick} className={`flex flex-col items-center gap-1 transition-colors ${active ? 'text-cyan-400' : 'text-slate-500'}`}>
@@ -378,44 +348,22 @@ const NavButton = ({ icon: Icon, label, active, onClick, count }) => (
   </button>
 );
 
-const AdminView = ({ products, setProducts, orders, setOrders, onLogout }) => {
+const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, onDealerUpdate, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [dealers, setDealers] = useState(MOCK_DEALERS);
-
-  // Business Logic Stats
-  const totalRevenue = orders.reduce((acc, o) => acc + o.total, 0);
+  
+  const totalRevenue = orders.reduce((acc, o) => acc + (o.totalAmount || 0), 0);
   const pendingCount = orders.filter(o => o.status === 'Pending').length;
 
-  // Feature: Update Stock
-  const handleStockUpdate = (id, delta) => {
-    setProducts(prev => prev.map(p => 
-      p.id === id ? { ...p, stock: Math.max(0, p.stock + delta) } : p
-    ));
-  };
-
-  // Feature: Manage Orders
-  const handleOrderStatus = (id, newStatus) => {
-    setOrders(prev => prev.map(o => 
-      o.id === id ? { ...o, status: newStatus } : o
-    ));
-  };
-
-  // Feature: Digital Khata Payment
-  const handleDealerPayment = (id) => {
+  const handleDealerPay = (id, currentBalance) => {
     const amount = prompt("Enter payment amount received (₹):");
     if (amount) {
-      setDealers(prev => prev.map(d => 
-        d.id === id ? { ...d, balance: d.balance + parseInt(amount), lastPay: "Just now" } : d
-      ));
-      alert(`Payment recorded! New Balance updated.`);
+      onDealerUpdate(id, amount, 'payment');
     }
   };
 
   return (
     <div className="min-h-screen bg-slate-950 pb-24 text-slate-100 font-sans">
       <GrainOverlay />
-      
-      {/* Admin Header */}
       <header className="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-md border-b border-white/10 px-6 py-4 flex justify-between items-center">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-cyan-500 flex items-center justify-center text-slate-950">
@@ -431,10 +379,9 @@ const AdminView = ({ products, setProducts, orders, setOrders, onLogout }) => {
         </button>
       </header>
 
-      {/* Admin Content Area */}
       <main className="p-6 space-y-8 max-w-lg mx-auto">
         
-        {/* TAB 1: DASHBOARD */}
+        {/* DASHBOARD */}
         {activeTab === 'dashboard' && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
             <div className="grid grid-cols-2 gap-4">
@@ -452,17 +399,17 @@ const AdminView = ({ products, setProducts, orders, setOrders, onLogout }) => {
               <h2 className="text-sm font-bold uppercase tracking-widest text-slate-500 mb-4">Live Inventory Overview</h2>
               <div className="space-y-3">
                 {products.map((p, i) => (
-                  <motion.div initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: i * 0.1 }} key={p.id} className="bg-slate-900 p-4 rounded-xl border border-white/5 flex items-center gap-4">
-                     <div className="w-10 h-10 bg-white/5 rounded-lg p-1">
-                        <img src={p.img} className="w-full h-full object-contain" alt="" />
-                     </div>
-                     <div className="flex-1">
-                        <div className="font-bold">{p.size}</div>
-                        <div className="text-xs text-slate-500">Capacity: {p.crateSize} units/crate</div>
-                     </div>
-                     <div className={`text-sm font-bold ${p.stock < 50 ? 'text-red-400' : 'text-green-400'}`}>
-                        {p.stock} Crates
-                     </div>
+                  <motion.div initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: i * 0.1 }} key={p._id || p.id} className="bg-slate-900 p-4 rounded-xl border border-white/5 flex items-center gap-4">
+                      <div className="w-10 h-10 bg-white/5 rounded-lg p-1">
+                         <img src={p.img} className="w-full h-full object-contain" alt="" />
+                      </div>
+                      <div className="flex-1">
+                         <div className="font-bold">{p.size}</div>
+                         <div className="text-xs text-slate-500">Capacity: {p.crateSize} units/crate</div>
+                      </div>
+                      <div className={`text-sm font-bold ${p.stock < 50 ? 'text-red-400' : 'text-green-400'}`}>
+                         {p.stock} Crates
+                      </div>
                   </motion.div>
                 ))}
               </div>
@@ -470,13 +417,13 @@ const AdminView = ({ products, setProducts, orders, setOrders, onLogout }) => {
           </motion.div>
         )}
 
-        {/* TAB 2: ORDERS MANAGEMENT */}
+        {/* ORDERS */}
         {activeTab === 'orders' && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
             <h2 className="text-xl font-bold">Orders Management</h2>
             {orders.length === 0 && <div className="text-slate-500 text-center py-10">No orders yet.</div>}
             {orders.map((order, i) => (
-              <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: i * 0.1 }} key={order.id} className="bg-slate-900 p-5 rounded-2xl border border-white/5 shadow-lg relative overflow-hidden">
+              <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: i * 0.1 }} key={order._id || order.id} className="bg-slate-900 p-5 rounded-2xl border border-white/5 shadow-lg relative overflow-hidden">
                 <div className={`absolute top-0 right-0 px-3 py-1 text-[10px] font-bold uppercase rounded-bl-xl ${
                    order.status === 'Pending' ? 'bg-orange-500/20 text-orange-400' :
                    order.status === 'Dispatched' ? 'bg-blue-500/20 text-blue-400' :
@@ -487,23 +434,30 @@ const AdminView = ({ products, setProducts, orders, setOrders, onLogout }) => {
                 
                 <div className="flex justify-between items-start mb-4">
                   <div>
-                    <div className="text-xs text-slate-500 font-mono mb-1">{order.id} • {order.time}</div>
-                    <div className="font-bold text-lg">{order.customer}</div>
+                    <div className="text-xs text-slate-500 font-mono mb-1">{order.orderId}</div>
+                    <div className="font-bold text-lg">{order.customerName}</div>
                   </div>
                 </div>
                 
-                <div className="bg-white/5 p-3 rounded-lg mb-4 text-sm text-slate-300 flex justify-between">
-                  <span>{order.items}</span>
-                  <span className="font-mono font-bold text-white">₹{order.total.toLocaleString()}</span>
+                <div className="bg-white/5 p-3 rounded-lg mb-4 text-sm text-slate-300 space-y-1">
+                  {order.items.map((item, idx) => (
+                     <div key={idx} className="flex justify-between">
+                         <span>{item.quantity}x {item.size}</span>
+                     </div>
+                  ))}
+                  <div className="border-t border-white/10 pt-2 mt-2 flex justify-between font-bold text-white">
+                      <span>Total</span>
+                      <span>₹{order.totalAmount.toLocaleString()}</span>
+                  </div>
                 </div>
 
                 {order.status === 'Pending' && (
-                   <button onClick={() => handleOrderStatus(order.id, 'Dispatched')} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white py-3 rounded-xl font-bold text-sm transition-colors">
+                   <button onClick={() => onStatusUpdate(order._id, 'Dispatched')} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white py-3 rounded-xl font-bold text-sm transition-colors">
                       Accept & Dispatch
                    </button>
                 )}
                 {order.status === 'Dispatched' && (
-                   <button onClick={() => handleOrderStatus(order.id, 'Delivered')} className="w-full bg-slate-800 hover:bg-slate-700 text-green-400 py-3 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2">
+                   <button onClick={() => onStatusUpdate(order._id, 'Delivered')} className="w-full bg-slate-800 hover:bg-slate-700 text-green-400 py-3 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2">
                       <CheckCircle size={16} /> Mark Delivered
                    </button>
                 )}
@@ -512,29 +466,29 @@ const AdminView = ({ products, setProducts, orders, setOrders, onLogout }) => {
           </motion.div>
         )}
 
-        {/* TAB 3: STOCK MANAGEMENT */}
+        {/* STOCK */}
         {activeTab === 'stock' && (
            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
               <h2 className="text-xl font-bold">Inventory Control</h2>
               {products.map((p, i) => (
-                 <motion.div initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: i * 0.1 }} key={p.id} className="bg-slate-900 p-6 rounded-2xl border border-white/5 flex flex-col gap-4">
+                 <motion.div initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: i * 0.1 }} key={p._id || p.id} className="bg-slate-900 p-6 rounded-2xl border border-white/5 flex flex-col gap-4">
                     <div className="flex items-center gap-4">
                        <img src={p.img} className="w-16 h-16 object-contain" alt="" />
                        <div>
                           <h3 className="text-lg font-bold">{p.size}</h3>
-                          <div className="text-xs text-slate-500">Current Price: ₹{p.pricePerCrate}</div>
+                          <div className="text-xs text-slate-500">Price: ₹{p.pricePerCrate}</div>
                        </div>
                     </div>
                     
                     <div className="bg-black/40 p-2 rounded-xl flex items-center justify-between">
-                       <button onClick={() => handleStockUpdate(p.id, -10)} className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center text-white hover:bg-red-500/20 hover:text-red-400 transition-colors">
+                       <button onClick={() => onStockUpdate(p._id, Math.max(0, p.stock - 10))} className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center text-white hover:bg-red-500/20 hover:text-red-400 transition-colors">
                           <Minus size={16}/>
                        </button>
                        <div className="text-center">
                           <div className="text-2xl font-mono font-bold">{p.stock}</div>
                           <div className="text-[9px] uppercase tracking-widest text-slate-500">Crates Available</div>
                        </div>
-                       <button onClick={() => handleStockUpdate(p.id, 10)} className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center text-white hover:bg-green-500/20 hover:text-green-400 transition-colors">
+                       <button onClick={() => onStockUpdate(p._id, p.stock + 10)} className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center text-white hover:bg-green-500/20 hover:text-green-400 transition-colors">
                           <Plus size={16}/>
                        </button>
                     </div>
@@ -543,14 +497,14 @@ const AdminView = ({ products, setProducts, orders, setOrders, onLogout }) => {
            </motion.div>
         )}
 
-        {/* TAB 4: KHATA (CREDIT BOOK) */}
+        {/* KHATA */}
         {activeTab === 'credit' && (
            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
               <h2 className="text-xl font-bold flex items-center gap-2">
                  <BookOpen className="text-cyan-500"/> Khata Book (Udhaar)
               </h2>
               {dealers.map((d, i) => (
-                 <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: i * 0.1 }} key={d.id} className="bg-slate-900 p-5 rounded-2xl border border-white/5 relative">
+                 <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: i * 0.1 }} key={d._id || d.id} className="bg-slate-900 p-5 rounded-2xl border border-white/5 relative">
                     <div className="flex justify-between items-start mb-4">
                        <div>
                           <div className="font-bold text-lg">{d.name}</div>
@@ -567,9 +521,9 @@ const AdminView = ({ products, setProducts, orders, setOrders, onLogout }) => {
                     </div>
                     
                     <div className="flex items-center justify-between bg-black/20 p-3 rounded-xl">
-                       <div className="text-xs text-slate-400">Last Pay: <span className="text-white">{d.lastPay}</span></div>
+                       <div className="text-xs text-slate-400">Last: <span className="text-white">{d.lastPaymentAmount ? `₹${d.lastPaymentAmount}` : 'N/A'}</span></div>
                        <button 
-                          onClick={() => handleDealerPayment(d.id)}
+                          onClick={() => handleDealerPay(d._id, d.balance)}
                           className="bg-green-600/20 text-green-400 border border-green-600/50 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-green-600 hover:text-white transition-all flex items-center gap-2"
                        >
                           <Wallet size={12}/> Record Pay
@@ -581,7 +535,6 @@ const AdminView = ({ products, setProducts, orders, setOrders, onLogout }) => {
         )}
       </main>
 
-      {/* Admin Bottom Navigation */}
       <div className="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-white/10 px-2 py-3 flex justify-around items-center z-50 safe-area-bottom">
         <NavButton icon={LayoutDashboard} label="Dash" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
         <NavButton icon={Package} label="Orders" active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} count={pendingCount} />
@@ -593,7 +546,7 @@ const AdminView = ({ products, setProducts, orders, setOrders, onLogout }) => {
   );
 };
 
-// --- 5. REUSABLE SECTIONS ---
+// --- REUSABLE SECTIONS ---
 
 const HeroSection = ({ openPartnerModal }) => (
     <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-4 pt-20 z-10">
@@ -643,8 +596,6 @@ const FeatureTile = ({ icon: Icon, title, desc, delay }) => (
   </Reveal>
 );
 
-// --- 6. LOADER & HELPERS ---
-
 const SplashLoader = () => (
     <div className="fixed inset-0 bg-slate-950 z-[100] flex items-center justify-center">
       <div className="flex flex-col items-center relative">
@@ -666,242 +617,6 @@ const SocialIcon = ({ Icon }) => (
    </a>
 );
 
-// --- 7. MAIN CONTROLLER APP ---
-
-export default function App() {
-  const [loading, setLoading] = useState(true);
-  const [viewMode, setViewMode] = useState('customer'); 
-  
-  // STATE LIFTING: Sharing Data between Admin and Customer
-  const [products, setProducts] = useState(INITIAL_PRODUCTS); // Inventory
-  const [orders, setOrders] = useState(MOCK_ORDERS); // Order History
-  
-  const [cart, setCart] = useState({}); 
-  const [menuOpen, setMenuOpen] = useState(false);
-  const [cartOpen, setCartOpen] = useState(false);
-  const [partnerOpen, setPartnerOpen] = useState(false);
-
-  useEffect(() => { setTimeout(() => setLoading(false), 3000); }, []); 
-
-  // LOGIC: Add to Cart with Stock Check
-  const handleUpdateCart = (product, newQty) => {
-    if (newQty > product.stock) {
-      alert(`Sorry, only ${product.stock} crates available.`);
-      return;
-    }
-    setCart(prev => {
-      const newCart = { ...prev };
-      if (newQty <= 0) delete newCart[product.id];
-      else newCart[product.id] = { ...product, quantity: newQty };
-      return newCart;
-    });
-    if (navigator.vibrate) navigator.vibrate(20);
-  };
-
-  const getCartCount = () => Object.keys(cart).length;
-  const getCartTotalCrates = () => Object.values(cart).reduce((acc, item) => acc + item.quantity, 0);
-
-  // LOGIC: Handle Checkout & Sync with Admin
-  const handleWhatsAppCheckout = () => {
-    const items = Object.values(cart);
-    if (items.length === 0) return;
-
-    // 1. Calculate Estimate
-    const totalEstimate = items.reduce((acc, item) => acc + (item.quantity * item.pricePerCrate), 0);
-    const orderItemsString = items.map(i => `${i.quantity}x ${i.size}`).join(', ');
-
-    // 2. REAL-TIME STOCK DEDUCTION
-    setProducts(prevProducts => prevProducts.map(p => {
-       const cartItem = items.find(i => i.id === p.id);
-       if (cartItem) {
-         return { ...p, stock: p.stock - cartItem.quantity };
-       }
-       return p;
-    }));
-
-    // 3. SAVE ORDER TO ADMIN PANEL
-    const newOrder = {
-       id: `#ORD-${Math.floor(Math.random() * 10000)}`,
-       customer: "New Web Inquiry",
-       items: orderItemsString,
-       status: "Pending",
-       total: totalEstimate,
-       time: "Just now"
-    };
-    setOrders(prev => [newOrder, ...prev]);
-
-    // 4. WhatsApp Redirect
-    let message = `*Wholesale Inquiry - जलsa Water*\n\nI am interested in ordering:\n`;
-    items.forEach(item => {
-      message += `🔹 ${item.size} x ${item.quantity} Crates\n`;
-    });
-    message += `\n*Est. Value: ₹${totalEstimate.toLocaleString()}*`;
-    
-    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`, '_blank');
-    
-    // 5. Cleanup
-    setCart({});
-    setCartOpen(false);
-  };
-
-  if (loading) return <SplashLoader />;
-
-  // RENDER: Admin View (If logged in)
-  if (viewMode === 'admin') {
-    return (
-      <AdminView 
-        products={products} 
-        setProducts={setProducts} 
-        orders={orders} 
-        setOrders={setOrders} 
-        onLogout={() => setViewMode('customer')} 
-      />
-    );
-  }
-
-  // RENDER: Customer View
-  return (
-    <div className="bg-slate-950 min-h-screen text-slate-200 font-sans overflow-x-hidden selection:bg-cyan-500/30">
-      <GrainOverlay />
-      <FloatingBubbles />
-      <ParallaxBottle />
-      
-      {/* Navigation */}
-      <nav className="fixed top-0 w-full z-40 px-8 py-6 hidden md:flex justify-between items-center mix-blend-difference text-white">
-        <div className="text-2xl font-black tracking-tighter flex items-center gap-2">
-            <Droplets className="text-cyan-400" size={24}/> जलsa.
-        </div>
-        <div className="flex gap-8 text-sm font-bold tracking-widest uppercase opacity-80">
-          <button onClick={() => setMenuOpen(true)} className="hover:text-cyan-400 transition-colors">Catalog</button>
-          <button onClick={() => setPartnerOpen(true)} className="hover:text-cyan-400 transition-colors">Distributorship</button>
-        </div>
-        <button onClick={() => setCartOpen(true)} className="flex gap-2 items-center hover:text-cyan-400 transition-colors font-bold uppercase text-sm">
-          <Package size={18} /> Bulk List ({getCartTotalCrates()})
-        </button>
-      </nav>
-
-      {/* Main Content */}
-      <main className="relative pb-0">
-        <HeroSection openPartnerModal={() => setPartnerOpen(true)} />
-
-        <div className="bg-cyan-500 text-slate-950 py-4 overflow-hidden whitespace-nowrap relative z-20 rotate-[-2deg] scale-110 shadow-2xl origin-left my-20 border-y-4 border-slate-950">
-          <motion.div animate={{ x: ["0%", "-50%"] }} transition={{ repeat: Infinity, duration: 5, ease: "linear" }} className="flex gap-12 font-black text-4xl md:text-6xl uppercase tracking-tighter items-center transform-gpu">
-            {[1,2,3,4,5,6].map(i => (
-              <span key={i} className="flex items-center gap-4">Wholesale Supply <Zap fill="currentColor" size={32}/> Bulk Orders <Truck fill="currentColor" size={32}/></span>
-            ))}
-          </motion.div>
-        </div>
-
-        <section className="py-20 relative z-10">
-          <div className="container mx-auto px-6 mb-12 flex justify-between items-end">
-            <Reveal direction="left">
-               <h2 className="text-4xl md:text-7xl font-bold text-white tracking-tighter">Stock <span className="text-cyan-500">Order</span></h2>
-               <p className="text-slate-400 mt-2 text-sm">Select crates count for your shop/godown.</p>
-            </Reveal>
-          </div>
-          <div className="flex overflow-x-auto snap-x snap-mandatory gap-6 px-6 pb-12 scrollbar-hide pt-10">
-            {products.map((p, index) => (
-              <ProductCard key={p.id} index={index} p={p} onUpdateCart={handleUpdateCart} cartItem={cart[p.id]} />
-            ))}
-          </div>
-        </section>
-
-        <section className="container mx-auto px-6 py-20 relative z-10 grid md:grid-cols-3 gap-6">
-           <FeatureTile icon={Truck} title="Factory Direct" desc="We manage our own logistics fleet." delay={0.1} />
-           <FeatureTile icon={Layers} title="Stackable" desc="Crates designed for safe warehousing." delay={0.2} />
-           <FeatureTile icon={Calculator} title="High Margin" desc="Competitive pricing structure for dealers." delay={0.3} />
-        </section>
-
-        <section className="py-24 border-y border-white/5 bg-slate-900/40 relative z-10 backdrop-blur-sm">
-           <div className="container mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-12">
-               <StatItem icon={Users} value="120+" label="Active Dealers" index={0} />
-               <StatItem icon={Clock} value="24h" label="Dispatch Time" index={1} />
-               <StatItem icon={Award} value="ISO" label="Certified Plant" index={2} />
-               <StatItem icon={Truck} value="10k+" label="Crates Delivered" index={3} />
-           </div>
-        </section>
-
-        <section className="relative py-32 flex flex-col items-center justify-center text-center px-6">
-           <BlurPatch color="bg-blue-600" className="w-[300px] h-[300px]" />
-           <Reveal direction="up">
-             <h2 className="text-4xl md:text-6xl font-bold text-white mb-8 max-w-2xl relative z-10">Ready to stock <span className="text-cyan-400">जलsa</span>?</h2>
-           </Reveal>
-           <Reveal direction="up" delay={0.2}>
-             <LuxuryButton primary onClick={() => setPartnerOpen(true)} className="scale-125 z-10">Apply for Dealership</LuxuryButton>
-           </Reveal>
-        </section>
-      </main>
-
-      {/* Global Overlays */}
-      <MobileDock itemCount={getCartCount()} onOpenCart={() => setCartOpen(true)} onOpenMenu={() => setMenuOpen(true)} />
-      <CartDrawer isOpen={cartOpen} onClose={() => setCartOpen(false)} cart={cart} onCheckout={handleWhatsAppCheckout} />
-      <FullScreenMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} openPartner={() => { setMenuOpen(false); setPartnerOpen(true); }} />
-      <PartnerModal isOpen={partnerOpen} onClose={() => setPartnerOpen(false)} />
-
-      {/* Footer */}
-      <footer className="bg-black pt-20 pb-10 border-t border-white/10 relative z-10">
-         <div className="container mx-auto px-6">
-            <div className="grid md:grid-cols-4 gap-12 mb-16">
-               <div className="col-span-1 md:col-span-1">
-                  <div className="text-3xl font-black text-white tracking-tighter mb-6 flex items-center gap-2">
-                      <Droplets className="text-cyan-500" /> जलsa.
-                  </div>
-                  <p className="text-slate-500 text-sm mb-6 leading-relaxed">Pure hydration, bottled at source. Proudly serving Rajasthan.</p>
-                  <div className="flex gap-4 mb-8">
-                     <SocialIcon Icon={Instagram} /> <SocialIcon Icon={Facebook} /> <SocialIcon Icon={Linkedin} />
-                  </div>
-                  {/* ADMIN LOGIN */}
-                  <div>
-                     <button onClick={() => setViewMode('admin')} className="text-[10px] uppercase tracking-widest text-slate-700 hover:text-cyan-500 transition-colors flex items-center gap-2 border border-slate-800 px-3 py-1 rounded-full">
-                        <Settings size={10} /> Staff Login
-                     </button>
-                  </div>
-               </div>
-               
-               {/* Quick Links */}
-               <div>
-                  <h4 className="text-white font-bold uppercase tracking-widest text-xs mb-6">Quick Links</h4>
-                  <ul className="space-y-4 text-slate-400 text-sm">
-                     <li className="hover:text-cyan-400 cursor-pointer transition-colors">Product Catalog</li>
-                     <li className="hover:text-cyan-400 cursor-pointer transition-colors" onClick={() => setPartnerOpen(true)}>Partner Program</li>
-                     <li className="hover:text-cyan-400 cursor-pointer transition-colors">Quality Reports</li>
-                     <li className="hover:text-cyan-400 cursor-pointer transition-colors">Contact Support</li>
-                  </ul>
-               </div>
-               
-               {/* Contact */}
-               <div>
-                  <h4 className="text-white font-bold uppercase tracking-widest text-xs mb-6">Factory Contact</h4>
-                  <ul className="space-y-4 text-slate-400 text-sm">
-                     <li className="flex items-start gap-3"><MapPin size={16} className="text-cyan-500 mt-1 shrink-0" /><span>Plot No. 45, Industrial Area, Mokampura</span></li>
-                     <li className="flex items-center gap-3"><Phone size={16} className="text-cyan-500 shrink-0" /><span>+91 98000 00000</span></li>
-                     <li className="flex items-center gap-3"><Mail size={16} className="text-cyan-500 shrink-0" /><span>sales@jalsawater.com</span></li>
-                  </ul>
-               </div>
-
-               {/* Newsletter */}
-               <div>
-                  <h4 className="text-white font-bold uppercase tracking-widest text-xs mb-6">Distributor Updates</h4>
-                  <div className="bg-white/5 p-1 rounded-lg border border-white/10 flex">
-                     <input type="email" placeholder="Your email" className="bg-transparent text-white px-4 py-2 w-full text-sm outline-none" />
-                     <button className="bg-cyan-600 text-white p-2 rounded-md hover:bg-cyan-500 transition-colors"><ArrowRight size={16} /></button>
-                  </div>
-                  <p className="text-xs text-slate-600 mt-4">Subscribe for price updates and seasonal offers.</p>
-               </div>
-            </div>
-            
-            <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-[10px] text-slate-600 uppercase tracking-widest">
-               <p>&copy; 2026 Eeji Enterprises Pvt Ltd.</p>
-               <div className="flex gap-6"><span>Privacy Policy</span><span>Terms of Trade</span></div>
-            </div>
-         </div>
-      </footer>
-    </div>
-  );
-}
-
-// --- OVERLAY COMPONENTS (Restored Full Detail) ---
-
 const CartDrawer = ({ isOpen, onClose, cart, onCheckout }) => {
   const items = Object.values(cart);
   const totalCrates = items.reduce((acc, item) => acc + item.quantity, 0);
@@ -922,7 +637,7 @@ const CartDrawer = ({ isOpen, onClose, cart, onCheckout }) => {
                 <div className="text-slate-500 text-center mt-20 flex flex-col items-center gap-4"><Package size={48} className="opacity-20"/><div>No crates selected.</div></div>
               ) : (
                 items.map((item) => (
-                  <div key={item.id} className="bg-white/5 p-4 rounded-xl border border-white/5 flex justify-between items-center">
+                  <div key={item._id || item.id} className="bg-white/5 p-4 rounded-xl border border-white/5 flex justify-between items-center">
                     <div className="flex items-center gap-4">
                       <img src={item.img} alt="mini" className="w-8 h-auto object-contain" />
                       <div><div className="font-bold text-white">{item.size}</div><div className="text-xs text-cyan-400">{item.quantity} Crates</div></div>
@@ -995,3 +710,406 @@ const PartnerModal = ({ isOpen, onClose }) => (
     )}
   </AnimatePresence>
 );
+
+const LoginModal = ({ isOpen, onClose, onLogin }) => {
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [error, setError] = useState('');
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        try {
+            await onLogin(email, password);
+            onClose();
+        } catch (err) {
+            setError('Invalid credentials');
+        }
+    };
+
+    return (
+        <AnimatePresence>
+            {isOpen && (
+                <>
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/90 backdrop-blur-md z-[90]" />
+                    <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="fixed inset-0 m-auto w-full max-w-sm h-fit bg-slate-900 border border-white/10 rounded-2xl z-[95] overflow-hidden flex flex-col shadow-2xl p-6">
+                        <div className="flex justify-between items-center mb-6">
+                             <h3 className="text-xl font-bold text-white flex items-center gap-2"><Lock size={18} className="text-cyan-500"/> Staff Login</h3>
+                             <button onClick={onClose}><X size={20} className="text-slate-400 hover:text-white"/></button>
+                        </div>
+                        {error && <div className="bg-red-500/10 text-red-400 p-3 rounded-lg text-xs mb-4">{error}</div>}
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <input type="email" placeholder="Admin Email" value={email} onChange={e=>setEmail(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-cyan-500"/>
+                            <input type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-cyan-500"/>
+                            <LuxuryButton primary className="w-full justify-center">Access Panel</LuxuryButton>
+                        </form>
+                    </motion.div>
+                </>
+            )}
+        </AnimatePresence>
+    );
+};
+
+// --- MAIN CONTROLLER APP ---
+
+export default function App() {
+  const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState('customer'); // 'customer' or 'admin'
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [token, setToken] = useState(localStorage.getItem('adminToken') || null);
+
+  // DYNAMIC DATA STATES - Initialized with default data
+  const [products, setProducts] = useState(INITIAL_PRODUCTS);
+  const [orders, setOrders] = useState([]);
+  const [dealers, setDealers] = useState([]);
+  
+  const [cart, setCart] = useState({}); 
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
+  const [partnerOpen, setPartnerOpen] = useState(false);
+
+  // --- API CALLS ---
+  const fetchProducts = async () => {
+    try {
+        const res = await fetch(`${API_URL}/api/products`);
+        const data = await res.json();
+        // Only overwrite if database has data, otherwise keep INITIAL_PRODUCTS
+        if (data && data.length > 0) {
+            setProducts(data);
+        }
+    } catch (err) { console.error("API Error - Using Local Data", err); }
+  };
+
+  const fetchAdminData = async () => {
+      if(!token) return;
+      try {
+          const ordersRes = await fetch(`${API_URL}/api/orders`, { headers: { 'x-auth-token': token } });
+          setOrders(await ordersRes.json());
+
+          const dealersRes = await fetch(`${API_URL}/api/dealers`, { headers: { 'x-auth-token': token } });
+          setDealers(await dealersRes.json());
+      } catch (err) { console.error("Admin Fetch Error", err); }
+  };
+
+  // --- INITIALIZATION & SOCKETS ---
+  useEffect(() => {
+    // 1. Initial Load
+    fetchProducts();
+    if (token) fetchAdminData();
+
+    // 2. Socket Connection
+    const newSocket = io(API_URL);
+
+    // 3. Socket Listeners
+    newSocket.on('connect', () => console.log('🟢 Socket Connected'));
+    
+    // Listen for Stock Updates (Updates Inventory for everyone)
+    newSocket.on('stock_updated', (updatedProduct) => {
+        setProducts(prev => {
+             // Handle Update
+             const exists = prev.find(p => p._id === updatedProduct._id || p.id === updatedProduct._id);
+             if (exists) {
+                 return prev.map(p => (p._id === updatedProduct._id || p.id === updatedProduct._id ? updatedProduct : p));
+             }
+             // Handle New Product
+             return [...prev, updatedProduct];
+        });
+    });
+
+    // Listen for New Orders (Updates Admin Panel)
+    newSocket.on('new_order', (newOrder) => {
+        setOrders(prev => [newOrder, ...prev]);
+        // Play notification sound if Admin
+        if (viewMode === 'admin') new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3').play().catch(()=>{});
+    });
+
+    // Listen for Order Status Changes
+    newSocket.on('order_status_updated', (updatedOrder) => {
+        setOrders(prev => prev.map(o => (o._id === updatedOrder._id ? updatedOrder : o)));
+    });
+
+    // Listen for Dealer Updates
+    newSocket.on('dealer_updated', (updatedDealer) => {
+        setDealers(prev => {
+             const exists = prev.find(d => d._id === updatedDealer._id);
+             if (exists) return prev.map(d => (d._id === updatedDealer._id ? updatedDealer : d));
+             return [...prev, updatedDealer];
+        });
+    });
+
+    setTimeout(() => setLoading(false), 2000);
+
+    return () => newSocket.disconnect();
+  }, [token, viewMode]);
+
+  // --- HANDLERS ---
+
+  const handleLogin = async (email, password) => {
+      const res = await fetch(`${API_URL}/api/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+      });
+      const data = await res.json();
+      if (res.ok) {
+          localStorage.setItem('adminToken', data.token);
+          setToken(data.token);
+          setViewMode('admin');
+      } else {
+          throw new Error(data.msg);
+      }
+  };
+
+  const handleLogout = () => {
+      localStorage.removeItem('adminToken');
+      setToken(null);
+      setViewMode('customer');
+  };
+
+  const handleUpdateCart = (product, newQty) => {
+    if (newQty > product.stock) {
+      alert(`Sorry, only ${product.stock} crates available.`);
+      return;
+    }
+    const pid = product._id || product.id;
+    setCart(prev => {
+      const newCart = { ...prev };
+      if (newQty <= 0) delete newCart[pid];
+      else newCart[pid] = { ...product, quantity: newQty };
+      return newCart;
+    });
+    if (navigator.vibrate) navigator.vibrate(20);
+  };
+
+  const getCartCount = () => Object.keys(cart).length;
+  const getCartTotalCrates = () => Object.values(cart).reduce((acc, item) => acc + item.quantity, 0);
+
+  const handleWhatsAppCheckout = async () => {
+    const items = Object.values(cart);
+    if (items.length === 0) return;
+
+    const totalEstimate = items.reduce((acc, item) => acc + (item.quantity * item.pricePerCrate), 0);
+    const orderItems = items.map(i => ({ productId: i._id || i.id, size: i.size, quantity: i.quantity, priceAtPurchase: i.pricePerCrate }));
+
+    // 1. Create Order in DB
+    try {
+        const orderData = {
+            orderId: `#ORD-${Math.floor(Math.random() * 100000)}`,
+            customerName: "Web Inquiry User", // In real app, ask for name
+            items: orderItems,
+            totalAmount: totalEstimate
+        };
+
+        const res = await fetch(`${API_URL}/api/orders`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orderData)
+        });
+
+        if(res.ok) {
+            // 2. WhatsApp Redirect
+            let message = `*Wholesale Inquiry - जलsa Water*\n\nI have placed an order via website:\n`;
+            items.forEach(item => {
+                message += `🔹 ${item.size} x ${item.quantity} Crates\n`;
+            });
+            message += `\n*Total Value: ₹${totalEstimate.toLocaleString()}*`;
+            
+            window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`, '_blank');
+            
+            // Cleanup
+            setCart({});
+            setCartOpen(false);
+        }
+    } catch (err) {
+        alert("Failed to place order. Try again.");
+    }
+  };
+
+  // Admin Handlers
+  const handleStockUpdate = async (id, newStock) => {
+      try {
+          await fetch(`${API_URL}/api/products/${id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json', 'x-auth-token': token },
+              body: JSON.stringify({ stock: newStock })
+          });
+      } catch (err) { alert('Update failed'); }
+  };
+
+  const handleOrderStatus = async (id, status) => {
+      try {
+          await fetch(`${API_URL}/api/orders/${id}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json', 'x-auth-token': token },
+              body: JSON.stringify({ status })
+          });
+      } catch (err) { alert('Status update failed'); }
+  };
+
+  const handleDealerTransaction = async (id, amount, type) => {
+      try {
+          await fetch(`${API_URL}/api/dealers/${id}/transaction`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json', 'x-auth-token': token },
+              body: JSON.stringify({ amount: Number(amount), type })
+          });
+      } catch (err) { alert('Transaction failed'); }
+  };
+
+  if (loading) return <SplashLoader />;
+
+  // RENDER: Admin View
+  if (viewMode === 'admin' && token) {
+    return (
+      <AdminView 
+        products={products} 
+        orders={orders} 
+        dealers={dealers}
+        onStockUpdate={handleStockUpdate}
+        onStatusUpdate={handleOrderStatus}
+        onDealerUpdate={handleDealerTransaction}
+        onLogout={handleLogout} 
+      />
+    );
+  }
+
+  // RENDER: Customer View
+  return (
+    <div className="bg-slate-950 min-h-screen text-slate-200 font-sans overflow-x-hidden selection:bg-cyan-500/30">
+      <GrainOverlay />
+      <FloatingBubbles />
+      <ParallaxBottle />
+      
+      {/* Navigation */}
+      <nav className="fixed top-0 w-full z-40 px-8 py-6 hidden md:flex justify-between items-center mix-blend-difference text-white">
+        <div className="text-2xl font-black tracking-tighter flex items-center gap-2">
+            <Droplets className="text-cyan-400" size={24}/> जलsa.
+        </div>
+        <div className="flex gap-8 text-sm font-bold tracking-widest uppercase opacity-80">
+          <button onClick={() => setMenuOpen(true)} className="hover:text-cyan-400 transition-colors">Catalog</button>
+          <button onClick={() => setPartnerOpen(true)} className="hover:text-cyan-400 transition-colors">Distributorship</button>
+        </div>
+        <button onClick={() => setCartOpen(true)} className="flex gap-2 items-center hover:text-cyan-400 transition-colors font-bold uppercase text-sm">
+          <Package size={18} /> Bulk List ({getCartTotalCrates()})
+        </button>
+      </nav>
+
+      {/* Main Content */}
+      <main className="relative pb-0">
+        <HeroSection openPartnerModal={() => setPartnerOpen(true)} />
+
+        <div className="bg-cyan-500 text-slate-950 py-4 overflow-hidden whitespace-nowrap relative z-20 rotate-[-2deg] scale-110 shadow-2xl origin-left my-20 border-y-4 border-slate-950">
+          <motion.div animate={{ x: ["0%", "-50%"] }} transition={{ repeat: Infinity, duration: 5, ease: "linear" }} className="flex gap-12 font-black text-4xl md:text-6xl uppercase tracking-tighter items-center transform-gpu">
+            {[1,2,3,4,5,6].map(i => (
+              <span key={i} className="flex items-center gap-4">Wholesale Supply <Zap fill="currentColor" size={32}/> Bulk Orders <Truck fill="currentColor" size={32}/></span>
+            ))}
+          </motion.div>
+        </div>
+
+        <section className="py-20 relative z-10">
+          <div className="container mx-auto px-6 mb-12 flex justify-between items-end">
+            <Reveal direction="left">
+               <h2 className="text-4xl md:text-7xl font-bold text-white tracking-tighter">Stock <span className="text-cyan-500">Order</span></h2>
+               <p className="text-slate-400 mt-2 text-sm">Select crates count for your shop/godown.</p>
+            </Reveal>
+          </div>
+          <div className="flex overflow-x-auto snap-x snap-mandatory gap-6 px-6 pb-12 scrollbar-hide pt-10">
+            {products.map((p, index) => (
+              <ProductCard key={p._id || p.id} index={index} p={p} onUpdateCart={handleUpdateCart} cartItem={cart[p._id || p.id]} />
+            ))}
+          </div>
+        </section>
+
+        <section className="container mx-auto px-6 py-20 relative z-10 grid md:grid-cols-3 gap-6">
+           <FeatureTile icon={Truck} title="Factory Direct" desc="We manage our own logistics fleet." delay={0.1} />
+           <FeatureTile icon={Layers} title="Stackable" desc="Crates designed for safe warehousing." delay={0.2} />
+           <FeatureTile icon={Calculator} title="High Margin" desc="Competitive pricing structure for dealers." delay={0.3} />
+        </section>
+
+        <section className="py-24 border-y border-white/5 bg-slate-900/40 relative z-10 backdrop-blur-sm">
+           <div className="container mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-12">
+               <StatItem icon={Users} value="120+" label="Active Dealers" index={0} />
+               <StatItem icon={Clock} value="24h" label="Dispatch Time" index={1} />
+               <StatItem icon={Award} value="ISO" label="Certified Plant" index={2} />
+               <StatItem icon={Truck} value="10k+" label="Crates Delivered" index={3} />
+           </div>
+        </section>
+
+        <section className="relative py-32 flex flex-col items-center justify-center text-center px-6">
+           <BlurPatch color="bg-blue-600" className="w-[300px] h-[300px]" />
+           <Reveal direction="up">
+             <h2 className="text-4xl md:text-6xl font-bold text-white mb-8 max-w-2xl relative z-10">Ready to stock <span className="text-cyan-400">जलsa</span>?</h2>
+           </Reveal>
+           <Reveal direction="up" delay={0.2}>
+             <LuxuryButton primary onClick={() => setPartnerOpen(true)} className="scale-125 z-10">Apply for Dealership</LuxuryButton>
+           </Reveal>
+        </section>
+      </main>
+
+      {/* Global Overlays */}
+      <MobileDock itemCount={getCartCount()} onOpenCart={() => setCartOpen(true)} onOpenMenu={() => setMenuOpen(true)} />
+      <CartDrawer isOpen={cartOpen} onClose={() => setCartOpen(false)} cart={cart} onCheckout={handleWhatsAppCheckout} />
+      <FullScreenMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} openPartner={() => { setMenuOpen(false); setPartnerOpen(true); }} />
+      <PartnerModal isOpen={partnerOpen} onClose={() => setPartnerOpen(false)} />
+      <LoginModal isOpen={loginOpen} onClose={() => setLoginOpen(false)} onLogin={handleLogin} />
+
+      {/* Footer */}
+      <footer className="bg-black pt-20 pb-10 border-t border-white/10 relative z-10">
+         <div className="container mx-auto px-6">
+            <div className="grid md:grid-cols-4 gap-12 mb-16">
+               <div className="col-span-1 md:col-span-1">
+                  <div className="text-3xl font-black text-white tracking-tighter mb-6 flex items-center gap-2">
+                      <Droplets className="text-cyan-500" /> जलsa.
+                  </div>
+                  <p className="text-slate-500 text-sm mb-6 leading-relaxed">Pure hydration, bottled at source. Proudly serving Rajasthan.</p>
+                  <div className="flex gap-4 mb-8">
+                     <SocialIcon Icon={Instagram} /> <SocialIcon Icon={Facebook} /> <SocialIcon Icon={Linkedin} />
+                  </div>
+                  {/* ADMIN LOGIN */}
+                  <div>
+                     <button onClick={() => token ? setViewMode('admin') : setLoginOpen(true)} className="text-[10px] uppercase tracking-widest text-slate-700 hover:text-cyan-500 transition-colors flex items-center gap-2 border border-slate-800 px-3 py-1 rounded-full">
+                        <Settings size={10} /> Staff Login
+                     </button>
+                  </div>
+               </div>
+               
+               {/* Quick Links */}
+               <div>
+                  <h4 className="text-white font-bold uppercase tracking-widest text-xs mb-6">Quick Links</h4>
+                  <ul className="space-y-4 text-slate-400 text-sm">
+                     <li className="hover:text-cyan-400 cursor-pointer transition-colors">Product Catalog</li>
+                     <li className="hover:text-cyan-400 cursor-pointer transition-colors" onClick={() => setPartnerOpen(true)}>Partner Program</li>
+                     <li className="hover:text-cyan-400 cursor-pointer transition-colors">Quality Reports</li>
+                     <li className="hover:text-cyan-400 cursor-pointer transition-colors">Contact Support</li>
+                  </ul>
+               </div>
+               
+               {/* Contact */}
+               <div>
+                  <h4 className="text-white font-bold uppercase tracking-widest text-xs mb-6">Factory Contact</h4>
+                  <ul className="space-y-4 text-slate-400 text-sm">
+                     <li className="flex items-start gap-3"><MapPin size={16} className="text-cyan-500 mt-1 shrink-0" /><span>Plot No. 45, Industrial Area, Mokampura</span></li>
+                     <li className="flex items-center gap-3"><Phone size={16} className="text-cyan-500 shrink-0" /><span>+91 98000 00000</span></li>
+                     <li className="flex items-center gap-3"><Mail size={16} className="text-cyan-500 shrink-0" /><span>sales@jalsawater.com</span></li>
+                  </ul>
+               </div>
+
+               {/* Newsletter */}
+               <div>
+                  <h4 className="text-white font-bold uppercase tracking-widest text-xs mb-6">Distributor Updates</h4>
+                  <div className="bg-white/5 p-1 rounded-lg border border-white/10 flex">
+                     <input type="email" placeholder="Your email" className="bg-transparent text-white px-4 py-2 w-full text-sm outline-none" />
+                     <button className="bg-cyan-600 text-white p-2 rounded-md hover:bg-cyan-500 transition-colors"><ArrowRight size={16} /></button>
+                  </div>
+                  <p className="text-xs text-slate-600 mt-4">Subscribe for price updates and seasonal offers.</p>
+               </div>
+            </div>
+            
+            <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-[10px] text-slate-600 uppercase tracking-widest">
+               <p>&copy; 2026 Eeji Enterprises Pvt Ltd.</p>
+               <div className="flex gap-6"><span>Privacy Policy</span><span>Terms of Trade</span></div>
+            </div>
+         </div>
+      </footer>
+    </div>
+  );
+}
