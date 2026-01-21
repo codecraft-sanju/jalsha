@@ -14,12 +14,12 @@ import {
   Facebook, Instagram, Linkedin, Truck, Layers, Calculator,
   Phone, Mail, MapPin, Award, Users, Clock,
   LayoutDashboard, Settings, LogOut, CheckCircle, AlertCircle,
-  BookOpen, Plus, Minus, Wallet, Lock
+  BookOpen, Plus, Minus, Wallet, Lock, Loader2
 } from 'lucide-react';
 import { io } from 'socket.io-client';
+import { Toaster, toast } from 'react-hot-toast'; // ✅ NEW: Professional Notifications
 
 // --- CONFIGURATION & ASSETS ---
-// ✅ CHANGE: Ab yeh values .env file se aayengi
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER || "919867165845";
 
@@ -77,6 +77,16 @@ const BlurPatch = ({ color = "bg-cyan-500", className }) => (
   <div className={`absolute rounded-full blur-[100px] opacity-20 pointer-events-none ${color} ${className}`} />
 );
 
+// ✅ NEW: Reusable Spinner Component
+const Spinner = () => (
+  <motion.div 
+    animate={{ rotate: 360 }}
+    transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+  >
+    <Loader2 size={18} className="text-white/80" />
+  </motion.div>
+);
+
 const Reveal = ({ children, direction = "up", delay = 0, className = "" }) => {
   const variants = {
     hidden: { 
@@ -105,25 +115,32 @@ const Reveal = ({ children, direction = "up", delay = 0, className = "" }) => {
   );
 };
 
-const LuxuryButton = ({ children, primary = false, onClick, className = "", icon: Icon, disabled }) => (
+// ✅ UPDATED: Supports 'loading' prop now
+const LuxuryButton = ({ children, primary = false, onClick, className = "", icon: Icon, disabled, loading = false }) => (
   <motion.button
-    whileHover={{ scale: disabled ? 1 : 1.05 }}
-    whileTap={{ scale: disabled ? 1 : 0.95 }}
+    whileHover={{ scale: (disabled || loading) ? 1 : 1.05 }}
+    whileTap={{ scale: (disabled || loading) ? 1 : 0.95 }}
     onClick={onClick}
-    disabled={disabled}
+    disabled={disabled || loading}
     className={`relative px-8 py-4 rounded-full font-bold text-sm tracking-widest uppercase overflow-hidden group transition-all duration-500 flex items-center justify-center gap-3 ${
-      disabled 
-        ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+      (disabled || loading)
+        ? 'bg-slate-800 text-slate-500 cursor-not-allowed opacity-80'
         : primary 
           ? 'bg-cyan-500 text-slate-950 shadow-[0_0_30px_-5px_rgba(6,182,212,0.4)] hover:shadow-[0_0_50px_-5px_rgba(6,182,212,0.6)]' 
           : 'bg-white/5 border border-white/10 text-white hover:bg-white/10'
     } ${className}`}
   >
     <span className="relative z-10 flex items-center gap-2">
-      {children}
-      {Icon && <Icon size={16} />}
+      {loading ? (
+         <>Processing <Spinner /></>
+      ) : (
+         <>
+           {children}
+           {Icon && <Icon size={16} />}
+         </>
+      )}
     </span>
-    {primary && !disabled && (
+    {primary && !disabled && !loading && (
       <div className="absolute inset-0 bg-white/30 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
     )}
   </motion.button>
@@ -241,7 +258,13 @@ const ProductCard = ({ p, onUpdateCart, cartItem, index }) => {
   const isOutOfStock = p.stock <= 0;
   const isLowStock = p.stock < 50;
 
-  const handleIncrement = () => onUpdateCart(p, quantity + 1);
+  const handleIncrement = () => {
+    if (quantity < p.stock) {
+      onUpdateCart(p, quantity + 1);
+    } else {
+      toast.error('Cannot exceed available stock!');
+    }
+  };
   const handleDecrement = () => { if (quantity > 0) onUpdateCart(p, quantity - 1); };
 
   return (
@@ -309,18 +332,20 @@ const ProductCard = ({ p, onUpdateCart, cartItem, index }) => {
           
           <div className="space-y-3">
               <div className={`flex items-center justify-between bg-slate-950 rounded-xl p-1 border border-white/10 ${isOutOfStock ? 'opacity-50 pointer-events-none' : ''}`}>
-                <button 
+                <motion.button 
+                  whileTap={{ scale: 0.9 }}
                   onClick={handleDecrement}
                   className="w-12 h-12 flex items-center justify-center text-white hover:bg-white/10 rounded-lg transition-colors"
-                > - </button>
+                > - </motion.button>
                 <div className="flex flex-col items-center">
                    <span className="text-white font-mono text-xl font-bold">{quantity}</span>
                    <span className="text-[9px] text-slate-500 uppercase tracking-widest">Crates</span>
                 </div>
-                <button 
+                <motion.button 
+                  whileTap={{ scale: 0.9 }}
                   onClick={handleIncrement}
                   className="w-12 h-12 flex items-center justify-center text-white bg-cyan-600 hover:bg-cyan-500 rounded-lg transition-colors shadow-lg shadow-cyan-500/20"
-                > + </button>
+                > + </motion.button>
               </div>
               {quantity > 0 && (
                 <div className="text-center text-[11px] text-cyan-400/80 tracking-wide animate-pulse">
@@ -353,7 +378,6 @@ const NavButton = ({ icon: Icon, label, active, onClick, count }) => (
 const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, onDealerUpdate, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
   
-  // ✅ FIX: Ensure orders/dealers are always arrays (Prevents .reduce() error)
   const safeOrders = Array.isArray(orders) ? orders : [];
   const safeDealers = Array.isArray(dealers) ? dealers : [];
 
@@ -458,14 +482,14 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                 </div>
 
                 {order.status === 'Pending' && (
-                   <button onClick={() => onStatusUpdate(order._id, 'Dispatched')} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white py-3 rounded-xl font-bold text-sm transition-colors">
-                      Accept & Dispatch
-                   </button>
+                   <motion.button whileTap={{scale: 0.95}} onClick={() => onStatusUpdate(order._id, 'Dispatched')} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white py-3 rounded-xl font-bold text-sm transition-colors">
+                     Accept & Dispatch
+                   </motion.button>
                 )}
                 {order.status === 'Dispatched' && (
-                   <button onClick={() => onStatusUpdate(order._id, 'Delivered')} className="w-full bg-slate-800 hover:bg-slate-700 text-green-400 py-3 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2">
+                   <motion.button whileTap={{scale: 0.95}} onClick={() => onStatusUpdate(order._id, 'Delivered')} className="w-full bg-slate-800 hover:bg-slate-700 text-green-400 py-3 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2">
                       <CheckCircle size={16} /> Mark Delivered
-                   </button>
+                   </motion.button>
                 )}
               </motion.div>
             ))}
@@ -487,16 +511,16 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                     </div>
                     
                     <div className="bg-black/40 p-2 rounded-xl flex items-center justify-between">
-                       <button onClick={() => onStockUpdate(p._id, Math.max(0, p.stock - 10))} className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center text-white hover:bg-red-500/20 hover:text-red-400 transition-colors">
+                       <motion.button whileTap={{scale: 0.9}} onClick={() => onStockUpdate(p._id, Math.max(0, p.stock - 10))} className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center text-white hover:bg-red-500/20 hover:text-red-400 transition-colors">
                           <Minus size={16}/>
-                       </button>
+                       </motion.button>
                        <div className="text-center">
                           <div className="text-2xl font-mono font-bold">{p.stock}</div>
                           <div className="text-[9px] uppercase tracking-widest text-slate-500">Crates Available</div>
                        </div>
-                       <button onClick={() => onStockUpdate(p._id, p.stock + 10)} className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center text-white hover:bg-green-500/20 hover:text-green-400 transition-colors">
+                       <motion.button whileTap={{scale: 0.9}} onClick={() => onStockUpdate(p._id, p.stock + 10)} className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center text-white hover:bg-green-500/20 hover:text-green-400 transition-colors">
                           <Plus size={16}/>
-                       </button>
+                       </motion.button>
                     </div>
                  </motion.div>
               ))}
@@ -528,12 +552,13 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                     
                     <div className="flex items-center justify-between bg-black/20 p-3 rounded-xl">
                        <div className="text-xs text-slate-400">Last: <span className="text-white">{d.lastPaymentAmount ? `₹${d.lastPaymentAmount}` : 'N/A'}</span></div>
-                       <button 
+                       <motion.button 
+                          whileTap={{scale: 0.95}}
                           onClick={() => handleDealerPay(d._id, d.balance)}
                           className="bg-green-600/20 text-green-400 border border-green-600/50 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-green-600 hover:text-white transition-all flex items-center gap-2"
                        >
                           <Wallet size={12}/> Record Pay
-                       </button>
+                       </motion.button>
                     </div>
                  </motion.div>
               ))}
@@ -627,6 +652,13 @@ const CartDrawer = ({ isOpen, onClose, cart, onCheckout }) => {
   const items = Object.values(cart);
   const totalCrates = items.reduce((acc, item) => acc + item.quantity, 0);
   const totalCost = items.reduce((acc, item) => acc + (item.quantity * item.pricePerCrate), 0);
+  const [loading, setLoading] = useState(false);
+
+  const handleCheckoutClick = async () => {
+      setLoading(true);
+      await onCheckout();
+      setLoading(false);
+  };
 
   return (
     <AnimatePresence>
@@ -656,7 +688,7 @@ const CartDrawer = ({ isOpen, onClose, cart, onCheckout }) => {
             <div className="mt-6 border-t border-white/10 pt-4 space-y-4">
                <div className="flex justify-between items-center text-sm"><span className="text-slate-400">Total Crates</span><span className="text-white font-bold">{totalCrates}</span></div>
                <div className="flex justify-between items-center text-xl"><span className="text-slate-400">Est. Total</span><span className="text-cyan-400 font-bold font-mono">₹{totalCost.toLocaleString()}</span></div>
-               <LuxuryButton primary className="w-full" onClick={onCheckout} disabled={items.length === 0}>Request via WhatsApp</LuxuryButton>
+               <LuxuryButton primary className="w-full" onClick={handleCheckoutClick} disabled={items.length === 0} loading={loading}>Request via WhatsApp</LuxuryButton>
                <p className="text-[10px] text-center text-slate-600">Note: Final pricing and delivery charges will be confirmed by our sales team.</p>
             </div>
           </motion.div>
@@ -686,49 +718,68 @@ const FullScreenMenu = ({ isOpen, onClose, openPartner }) => (
   </AnimatePresence>
 );
 
-const PartnerModal = ({ isOpen, onClose }) => (
-  <AnimatePresence>
-    {isOpen && (
-      <>
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/90 backdrop-blur-md z-[90]" />
-        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="fixed inset-0 m-auto w-full max-w-lg h-fit max-h-[90vh] bg-slate-900 border border-white/10 rounded-3xl z-[95] overflow-hidden flex flex-col shadow-2xl">
-          <div className="p-8 bg-gradient-to-br from-cyan-600 to-blue-700 relative overflow-hidden">
-             <div className="relative z-10 text-white"><h3 className="text-3xl font-bold mb-2">Dealer Application</h3><p className="text-blue-100 text-sm">Join the distribution network of Mokampura's finest water.</p></div>
-             <Droplets className="absolute -bottom-4 -right-4 text-white/20 w-32 h-32" />
-             <button onClick={onClose} className="absolute top-4 right-4 bg-black/20 p-2 rounded-full text-white hover:bg-black/40"><X size={18}/></button>
-          </div>
-          <div className="p-8 space-y-4 overflow-y-auto">
-             <input type="text" placeholder="Owner Full Name" className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-cyan-500 outline-none" />
-             <input type="text" placeholder="Shop / Agency Name" className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-cyan-500 outline-none" />
-             <div className="flex gap-4"><input type="tel" placeholder="Mobile" className="w-1/2 bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-cyan-500 outline-none" /><input type="text" placeholder="Area / City" className="w-1/2 bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-cyan-500 outline-none" /></div>
-             <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
-                <label className="text-slate-400 text-xs uppercase tracking-wider mb-2 block">Expected Monthly Offtake</label>
-                <select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white outline-none">
-                   <option>100 - 500 Crates</option>
-                   <option>500 - 1000 Crates</option>
-                   <option>Full Truck Load (FTL)</option>
-                </select>
-             </div>
-             <LuxuryButton primary className="w-full" onClick={() => { alert('Application Sent!'); onClose(); }}>Submit Application</LuxuryButton>
-          </div>
-        </motion.div>
-      </>
-    )}
-  </AnimatePresence>
-);
+const PartnerModal = ({ isOpen, onClose }) => {
+    const [submitting, setSubmitting] = useState(false);
+
+    const handleSubmit = async () => {
+        setSubmitting(true);
+        // Simulate API call
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        setSubmitting(false);
+        toast.success("Application Submitted! Our team will contact you.", { duration: 4000, icon: '🚀' });
+        onClose();
+    };
+
+    return (
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/90 backdrop-blur-md z-[90]" />
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="fixed inset-0 m-auto w-full max-w-lg h-fit max-h-[90vh] bg-slate-900 border border-white/10 rounded-3xl z-[95] overflow-hidden flex flex-col shadow-2xl">
+              <div className="p-8 bg-gradient-to-br from-cyan-600 to-blue-700 relative overflow-hidden">
+                  <div className="relative z-10 text-white"><h3 className="text-3xl font-bold mb-2">Dealer Application</h3><p className="text-blue-100 text-sm">Join the distribution network of Mokampura's finest water.</p></div>
+                  <Droplets className="absolute -bottom-4 -right-4 text-white/20 w-32 h-32" />
+                  <button onClick={onClose} className="absolute top-4 right-4 bg-black/20 p-2 rounded-full text-white hover:bg-black/40"><X size={18}/></button>
+              </div>
+              <div className="p-8 space-y-4 overflow-y-auto">
+                  <input type="text" placeholder="Owner Full Name" className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-cyan-500 outline-none" />
+                  <input type="text" placeholder="Shop / Agency Name" className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-cyan-500 outline-none" />
+                  <div className="flex gap-4"><input type="tel" placeholder="Mobile" className="w-1/2 bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-cyan-500 outline-none" /><input type="text" placeholder="Area / City" className="w-1/2 bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-cyan-500 outline-none" /></div>
+                  <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                    <label className="text-slate-400 text-xs uppercase tracking-wider mb-2 block">Expected Monthly Offtake</label>
+                    <select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white outline-none">
+                        <option>100 - 500 Crates</option>
+                        <option>500 - 1000 Crates</option>
+                        <option>Full Truck Load (FTL)</option>
+                    </select>
+                  </div>
+                  <LuxuryButton primary className="w-full" onClick={handleSubmit} loading={submitting}>Submit Application</LuxuryButton>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    );
+};
 
 const LoginModal = ({ isOpen, onClose, onLogin }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
+    const [loading, setLoading] = useState(false);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        setLoading(true);
         try {
             await onLogin(email, password);
             onClose();
+            toast.success("Welcome back, Admin!");
         } catch (err) {
             setError('Invalid credentials');
+            toast.error("Login Failed");
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -746,7 +797,7 @@ const LoginModal = ({ isOpen, onClose, onLogin }) => {
                         <form onSubmit={handleSubmit} className="space-y-4">
                             <input type="email" placeholder="Admin Email" value={email} onChange={e=>setEmail(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-cyan-500"/>
                             <input type="password" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-cyan-500"/>
-                            <LuxuryButton primary className="w-full justify-center">Access Panel</LuxuryButton>
+                            <LuxuryButton primary className="w-full justify-center" loading={loading} onClick={handleSubmit}>Access Panel</LuxuryButton>
                         </form>
                     </motion.div>
                 </>
@@ -768,17 +819,29 @@ export default function App() {
   const [orders, setOrders] = useState([]);
   const [dealers, setDealers] = useState([]);
   
-  const [cart, setCart] = useState({}); 
+  // ✅ UPDATED: Read from localStorage initially
+  const [cart, setCart] = useState(() => {
+     try {
+       const saved = localStorage.getItem('jalsa_cart');
+       return saved ? JSON.parse(saved) : {};
+     } catch (e) {
+       return {};
+     }
+  }); 
   const [menuOpen, setMenuOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [partnerOpen, setPartnerOpen] = useState(false);
+
+  // ✅ UPDATED: Save to localStorage whenever cart changes
+  useEffect(() => {
+     localStorage.setItem('jalsa_cart', JSON.stringify(cart));
+  }, [cart]);
 
   // --- API CALLS ---
   const fetchProducts = async () => {
     try {
         const res = await fetch(`${API_URL}/api/products`);
         const data = await res.json();
-        // Only overwrite if database has data
         if (data && data.length > 0) {
             setProducts(data);
         }
@@ -790,19 +853,14 @@ export default function App() {
       try {
           const ordersRes = await fetch(`${API_URL}/api/orders`, { headers: { 'x-auth-token': token } });
           const ordersData = await ordersRes.json();
-          
-          // ✅ FIX: Only set state if data is actually an array
           if (Array.isArray(ordersData)) {
             setOrders(ordersData);
           } else {
-            console.error("Orders API returned non-array:", ordersData);
-            setOrders([]); // Fallback to empty array
+            setOrders([]);
           }
 
           const dealersRes = await fetch(`${API_URL}/api/dealers`, { headers: { 'x-auth-token': token } });
           const dealersData = await dealersRes.json();
-          
-          // ✅ FIX: Same safety check for dealers
           if (Array.isArray(dealersData)) {
             setDealers(dealersData);
           } else {
@@ -814,28 +872,21 @@ export default function App() {
 
   // --- INITIALIZATION & SOCKETS ---
   useEffect(() => {
-    // 1. Initial Load
     fetchProducts();
     if (token) {
         setViewMode('admin');
         fetchAdminData();
     }
 
-    // 2. Socket Connection
     const newSocket = io(API_URL);
 
-    // 3. Socket Listeners
     newSocket.on('connect', () => console.log('🟢 Socket Connected'));
     
-    // Listen for Stock Updates (Updates Inventory for everyone)
     newSocket.on('stock_updated', (updatedProduct) => {
         setProducts(prev => {
-             // Handle Deleted Product
              if(updatedProduct.deleted) {
                  return prev.filter(p => p._id !== updatedProduct._id);
              }
-             
-             // Handle Update or New
              const exists = prev.find(p => p._id === updatedProduct._id || p.id === updatedProduct._id);
              if (exists) {
                  return prev.map(p => (p._id === updatedProduct._id || p.id === updatedProduct._id ? updatedProduct : p));
@@ -844,18 +895,15 @@ export default function App() {
         });
     });
 
-    // Listen for New Orders (Updates Admin Panel)
     newSocket.on('new_order', (newOrder) => {
         setOrders(prev => [newOrder, ...prev]);
-        // Optional: Audio notification logic here
+        toast("New Order Received!", { icon: '📦' });
     });
 
-    // Listen for Order Status Changes
     newSocket.on('order_status_updated', (updatedOrder) => {
         setOrders(prev => prev.map(o => (o._id === updatedOrder._id ? updatedOrder : o)));
     });
 
-    // Listen for Dealer Updates
     newSocket.on('dealer_updated', (updatedDealer) => {
         setDealers(prev => {
              const exists = prev.find(d => d._id === updatedDealer._id);
@@ -882,7 +930,6 @@ export default function App() {
           localStorage.setItem('adminToken', data.token);
           setToken(data.token);
           setViewMode('admin');
-          // Fetch admin data immediately after login
           fetchAdminData();
       } else {
           throw new Error(data.msg);
@@ -895,18 +942,25 @@ export default function App() {
       setViewMode('customer');
       setOrders([]);
       setDealers([]);
+      toast("Logged out successfully");
   };
 
   const handleUpdateCart = (product, newQty) => {
     if (newQty > product.stock) {
-      alert(`Sorry, only ${product.stock} crates available.`);
+      toast.error(`Only ${product.stock} crates available`);
       return;
     }
     const pid = product._id || product.id;
     setCart(prev => {
       const newCart = { ...prev };
-      if (newQty <= 0) delete newCart[pid];
-      else newCart[pid] = { ...product, quantity: newQty };
+      if (newQty <= 0) {
+          delete newCart[pid];
+          toast('Removed from cart', { icon: '🗑️' });
+      } else {
+          const isAdd = (!prev[pid] || newQty > prev[pid].quantity);
+          newCart[pid] = { ...product, quantity: newQty };
+          if(isAdd) toast.success(`Added ${newQty} crates`);
+      }
       return newCart;
     });
     if (navigator.vibrate) navigator.vibrate(20);
@@ -919,10 +973,12 @@ export default function App() {
     const items = Object.values(cart);
     if (items.length === 0) return;
 
+    // Simulate Network Delay for Loader Effect
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
     const totalEstimate = items.reduce((acc, item) => acc + (item.quantity * item.pricePerCrate), 0);
     const orderItems = items.map(i => ({ productId: i._id || i.id, size: i.size, quantity: i.quantity, priceAtPurchase: i.pricePerCrate }));
 
-    // 1. Create Order in DB
     try {
         const orderData = {
             orderId: `#ORD-${Math.floor(Math.random() * 100000)}`,
@@ -938,7 +994,6 @@ export default function App() {
         });
 
         if(res.ok) {
-            // 2. WhatsApp Redirect
             let message = `*Wholesale Inquiry - जलsa Water*\n\nI have placed an order via website:\n`;
             items.forEach(item => {
                 message += `🔹 ${item.size} x ${item.quantity} Crates\n`;
@@ -947,12 +1002,12 @@ export default function App() {
             
             window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`, '_blank');
             
-            // Cleanup
             setCart({});
             setCartOpen(false);
+            toast.success("Order Placed Successfully!");
         }
     } catch (err) {
-        alert("Failed to place order. Try again.");
+        toast.error("Failed to connect to server");
     }
   };
 
@@ -964,7 +1019,8 @@ export default function App() {
               headers: { 'Content-Type': 'application/json', 'x-auth-token': token },
               body: JSON.stringify({ stock: newStock })
           });
-      } catch (err) { alert('Update failed'); }
+          toast.success("Stock Updated");
+      } catch (err) { toast.error('Update failed'); }
   };
 
   const handleOrderStatus = async (id, status) => {
@@ -974,18 +1030,19 @@ export default function App() {
               headers: { 'Content-Type': 'application/json', 'x-auth-token': token },
               body: JSON.stringify({ status })
           });
-      } catch (err) { alert('Status update failed'); }
+          toast.success(`Order marked as ${status}`);
+      } catch (err) { toast.error('Status update failed'); }
   };
 
   const handleDealerTransaction = async (id, amount, type) => {
       try {
-          // type should be 'payment' or 'credit'
           await fetch(`${API_URL}/api/dealers/${id}/transaction`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json', 'x-auth-token': token },
               body: JSON.stringify({ amount: Number(amount), type })
           });
-      } catch (err) { alert('Transaction failed'); }
+          toast.success("Transaction Recorded");
+      } catch (err) { toast.error('Transaction failed'); }
   };
 
   if (loading) return <SplashLoader />;
@@ -993,21 +1050,25 @@ export default function App() {
   // RENDER: Admin View
   if (viewMode === 'admin' && token) {
     return (
-      <AdminView 
-        products={products} 
-        orders={orders} 
-        dealers={dealers}
-        onStockUpdate={handleStockUpdate}
-        onStatusUpdate={handleOrderStatus}
-        onDealerUpdate={handleDealerTransaction}
-        onLogout={handleLogout} 
-      />
+      <>
+        <Toaster position="top-center" toastOptions={{ style: { background: '#1e293b', color: '#fff', border: '1px solid #334155' }}} />
+        <AdminView 
+          products={products} 
+          orders={orders} 
+          dealers={dealers}
+          onStockUpdate={handleStockUpdate}
+          onStatusUpdate={handleOrderStatus}
+          onDealerUpdate={handleDealerTransaction}
+          onLogout={handleLogout} 
+        />
+      </>
     );
   }
 
   // RENDER: Customer View
   return (
     <div className="bg-slate-950 min-h-screen text-slate-200 font-sans overflow-x-hidden selection:bg-cyan-500/30">
+      <Toaster position="bottom-center" toastOptions={{ style: { background: '#1e293b', color: '#fff', border: '1px solid #334155' }}} />
       <GrainOverlay />
       <FloatingBubbles />
       <ParallaxBottle />
