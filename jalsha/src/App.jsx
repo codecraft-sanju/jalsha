@@ -14,40 +14,16 @@ import {
   Facebook, Instagram, Linkedin, Truck, Layers, Calculator,
   Phone, Mail, MapPin, Award, Users, Clock,
   LayoutDashboard, Settings, LogOut, CheckCircle, AlertCircle,
-  BookOpen, Plus, Minus, Wallet, Lock, Loader2
+  BookOpen, Plus, Minus, Wallet, Lock, Loader2, Edit, Save, Trash2, Search
 } from 'lucide-react';
 import { io } from 'socket.io-client';
-import { Toaster, toast } from 'react-hot-toast'; // ✅ Professional Notifications added
+import { Toaster, toast } from 'react-hot-toast';
 
 // --- CONFIGURATION & ASSETS ---
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER || "919867165845";
 
 const NOISE_BG = "url('https://grainy-gradients.vercel.app/noise.svg')";
-
-// ✅ YOUR LOCAL IMAGES (Make sure these exist in /public folder)
-const IMG_200ML = "./200litre.png"; 
-const IMG_1L = "./1litre.png";
-const IMG_20L = "./20litre.png";
-
-// --- 1. INITIAL DATA (Fallback) ---
-const INITIAL_PRODUCTS = [
-  { 
-    _id: "p1", id: "p1", size: "200ml", img: IMG_200ML, 
-    crateSize: 30, pricePerCrate: 240, stock: 500, 
-    desc: "Weddings & Events Preferred", tag: "High Volume" 
-  },
-  { 
-    _id: "p2", id: "p2", size: "1 Litre", img: IMG_1L, 
-    crateSize: 12, pricePerCrate: 180, stock: 120, 
-    desc: "Retail & Shop Standard", tag: "Best Seller" 
-  },
-  { 
-    _id: "p3", id: "p3", size: "20 Litre", img: IMG_20L, 
-    crateSize: 1, pricePerCrate: 60, stock: 50, 
-    desc: "Office & Home Delivery", tag: "Recurring" 
-  },
-];
 
 // --- VISUAL MICRO-COMPONENTS ---
 
@@ -59,7 +35,6 @@ const BlurPatch = ({ color = "bg-cyan-500", className }) => (
   <div className={`absolute rounded-full blur-[100px] opacity-20 pointer-events-none ${color} ${className}`} />
 );
 
-// ✅ NEW: Reusable Spinner Component for Loaders
 const Spinner = ({ size = 18, color = "text-white/80" }) => (
   <motion.div 
     animate={{ rotate: 360 }}
@@ -98,7 +73,6 @@ const Reveal = ({ children, direction = "up", delay = 0, className = "" }) => {
   );
 };
 
-// ✅ UPDATED: Button with automatic Loader support
 const LuxuryButton = ({ children, primary = false, onClick, className = "", icon: Icon, disabled, loading = false }) => (
   <motion.button
     whileHover={{ scale: (disabled || loading) ? 1 : 1.05 }}
@@ -220,8 +194,9 @@ const ParallaxBottle = () => {
     <div className="fixed inset-0 pointer-events-none z-0 flex items-center justify-center overflow-hidden">
       <BlurPatch className="w-[80vw] h-[80vw] bg-cyan-500/20 md:opacity-10" />
       <motion.div style={{ y, rotate, scale, opacity }} className="relative h-[65vh] md:h-[95vh] w-auto aspect-[1/3] z-20">
+        {/* Placeholder image, will be behind actual content */}
         <img 
-          src={IMG_1L} alt="Jalsa Premium" 
+          src="./1litre.png" alt="Jalsa Premium" 
           className="w-full h-full object-contain drop-shadow-[0_40px_80px_rgba(0,0,0,0.7)]"
           onError={(e) => { e.target.style.display = 'none'; }}
         />
@@ -275,10 +250,10 @@ const ProductCard = ({ p, onUpdateCart, cartItem, index }) => {
         <div className="h-[55%] flex items-center justify-center bg-gradient-to-b from-slate-800 to-slate-900 relative p-6">
            <div className="absolute inset-0 bg-cyan-500/10 blur-3xl group-hover:bg-cyan-500/20 transition-colors duration-500" />
            <motion.img 
-             src={p.img} alt={p.size} 
+             src={p.img || p.imageUrl} alt={p.size} 
              className={`h-full w-auto object-contain drop-shadow-2xl z-10 ${isOutOfStock ? 'grayscale opacity-50' : ''}`}
              whileHover={!isOutOfStock ? { scale: 1.1, rotate: 5 } : {}}
-             onError={(e) => e.target.style.display = 'none'}
+             onError={(e) => {e.target.src = "https://placehold.co/200x400/000/FFF?text=Bottle"}}
            />
            {p.tag && !isOutOfStock && (
              <span className="absolute top-6 right-6 bg-white text-slate-900 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider z-20">
@@ -305,7 +280,7 @@ const ProductCard = ({ p, onUpdateCart, cartItem, index }) => {
                 <span className="text-[10px] text-slate-500 uppercase tracking-wider">Per Crate</span>
               </div>
             </div>
-            <p className="text-slate-400 text-sm leading-relaxed mb-4">{p.desc}</p>
+            <p className="text-slate-400 text-sm leading-relaxed mb-4 line-clamp-2">{p.desc}</p>
             {isLowStock && !isOutOfStock && (
               <div className="text-orange-400 text-xs flex items-center gap-1 mb-2">
                 <AlertCircle size={12} /> Only {p.stock} crates left
@@ -344,7 +319,98 @@ const ProductCard = ({ p, onUpdateCart, cartItem, index }) => {
 
 // --- ADMIN PANEL COMPONENTS ---
 
-// Helper button for Admin Actions
+// Product Edit/Add Modal (The "Orvella" style adapted for Jalsa)
+const ProductModal = ({ isOpen, onClose, product, onSave }) => {
+    const [formData, setFormData] = useState({
+        size: '',
+        pricePerCrate: '',
+        stock: '',
+        crateSize: '',
+        img: '',
+        desc: '',
+        tag: ''
+    });
+    const [submitting, setSubmitting] = useState(false);
+
+    useEffect(() => {
+        if (product) {
+            setFormData(product);
+        } else {
+            setFormData({ size: '', pricePerCrate: '', stock: '100', crateSize: '12', img: './1litre.png', desc: '', tag: '' });
+        }
+    }, [product]);
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setSubmitting(true);
+        await onSave(formData);
+        setSubmitting(false);
+        onClose();
+    };
+
+    return (
+        <AnimatePresence>
+            {isOpen && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-black/90 backdrop-blur-md" />
+                    <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }} className="bg-[#121212] border border-cyan-500/50 w-full max-w-lg rounded-2xl p-6 relative z-10 shadow-2xl max-h-[90vh] overflow-y-auto">
+                        <h2 className="text-xl font-serif text-cyan-400 mb-6 flex items-center gap-2">
+                            {product ? <><Edit size={20}/> Edit Product</> : <><Plus size={20}/> Add New Product</>}
+                        </h2>
+                        <form onSubmit={handleSubmit} className="space-y-4">
+                            <div>
+                                <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Product Name (Size)</label>
+                                <input type="text" placeholder="e.g. 1 Litre Bottle" value={formData.size} onChange={e => setFormData({...formData, size: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none mt-1"/>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Price / Crate (₹)</label>
+                                    <input type="number" placeholder="Price" value={formData.pricePerCrate} onChange={e => setFormData({...formData, pricePerCrate: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none mt-1"/>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Stock Qty</label>
+                                    <input type="number" placeholder="Stock" value={formData.stock} onChange={e => setFormData({...formData, stock: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none mt-1"/>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Bottles per Crate</label>
+                                    <input type="number" placeholder="Qty" value={formData.crateSize} onChange={e => setFormData({...formData, crateSize: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none mt-1"/>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Tag (Optional)</label>
+                                    <input type="text" placeholder="e.g. Best Seller" value={formData.tag} onChange={e => setFormData({...formData, tag: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none mt-1"/>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Image URL</label>
+                                <input type="text" placeholder="Image Path (e.g. ./1litre.png)" value={formData.img} onChange={e => setFormData({...formData, img: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none text-xs mt-1"/>
+                            </div>
+                            
+                            <div>
+                                <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Description</label>
+                                <textarea 
+                                    placeholder="Product details..." 
+                                    value={formData.desc} 
+                                    onChange={e => setFormData({...formData, desc: e.target.value})} 
+                                    className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none h-24 resize-none mt-1"
+                                />
+                            </div>
+
+                            <div className="flex gap-3 mt-4">
+                                <button type="button" onClick={onClose} className="flex-1 py-3 bg-white/5 text-gray-400 font-bold uppercase rounded-xl hover:bg-white/10 transition-colors">Cancel</button>
+                                <button type="submit" disabled={submitting} className="flex-1 bg-cyan-600 text-white font-bold uppercase py-3 rounded-xl hover:bg-cyan-500 transition-colors flex items-center justify-center gap-2">
+                                    {submitting ? <Spinner size={16}/> : <><Save size={16}/> {product ? 'Update' : 'Create'}</>}
+                                </button>
+                            </div>
+                        </form>
+                    </motion.div>
+                </div>
+            )}
+        </AnimatePresence>
+    );
+};
+
 const AdminActionButton = ({ onClick, loading, children, className, variant="primary" }) => {
   return (
     <motion.button
@@ -378,9 +444,11 @@ const NavButton = ({ icon: Icon, label, active, onClick, count }) => (
   </button>
 );
 
-const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, onDealerUpdate, onLogout }) => {
+const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, onDealerUpdate, onSaveProduct, onDeleteProduct, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [loadingAction, setLoadingAction] = useState(null); // Track which ID is loading
+  const [loadingAction, setLoadingAction] = useState(null);
+  const [showProductModal, setShowProductModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
   
   const safeOrders = Array.isArray(orders) ? orders : [];
   const safeDealers = Array.isArray(dealers) ? dealers : [];
@@ -388,8 +456,18 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
   const totalRevenue = safeOrders.reduce((acc, o) => acc + (o.totalAmount || 0), 0);
   const pendingCount = safeOrders.filter(o => o.status === 'Pending').length;
 
+  const handleEditClick = (product) => {
+      setEditingProduct(product);
+      setShowProductModal(true);
+  };
+
+  const handleAddClick = () => {
+      setEditingProduct(null);
+      setShowProductModal(true);
+  };
+
   const handleStockClick = async (id, newStock) => {
-      setLoadingAction(id); // Set loading for this specific product ID
+      setLoadingAction(id);
       await onStockUpdate(id, newStock);
       setLoadingAction(null);
   };
@@ -409,9 +487,24 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
     }
   };
 
+  const handleDeleteClick = async (id) => {
+      if(window.confirm("Delete this product?")) {
+          await onDeleteProduct(id);
+      }
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 pb-24 text-slate-100 font-sans">
       <GrainOverlay />
+      
+      {/* Product Modal */}
+      <ProductModal 
+        isOpen={showProductModal} 
+        onClose={() => setShowProductModal(false)} 
+        product={editingProduct}
+        onSave={onSaveProduct}
+      />
+
       <header className="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-md border-b border-white/10 px-6 py-4 flex justify-between items-center">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-cyan-500 flex items-center justify-center text-slate-950">
@@ -444,22 +537,36 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
             </div>
 
             <div>
-              <h2 className="text-sm font-bold uppercase tracking-widest text-slate-500 mb-4">Live Inventory Overview</h2>
+              <div className="flex justify-between items-end mb-4">
+                  <h2 className="text-sm font-bold uppercase tracking-widest text-slate-500">Live Inventory</h2>
+                  <button onClick={handleAddClick} className="text-xs text-cyan-400 flex items-center gap-1 font-bold hover:bg-cyan-500/10 px-2 py-1 rounded transition-colors">
+                      <Plus size={14}/> Add Product
+                  </button>
+              </div>
+              
               <div className="space-y-3">
-                {products.map((p, i) => (
-                  <motion.div initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: i * 0.1 }} key={p._id || p.id} className="bg-slate-900 p-4 rounded-xl border border-white/5 flex items-center gap-4">
-                      <div className="w-10 h-10 bg-white/5 rounded-lg p-1">
-                         <img src={p.img} className="w-full h-full object-contain" alt="" />
-                      </div>
-                      <div className="flex-1">
-                         <div className="font-bold">{p.size}</div>
-                         <div className="text-xs text-slate-500">Capacity: {p.crateSize} units/crate</div>
-                      </div>
-                      <div className={`text-sm font-bold ${p.stock < 50 ? 'text-red-400' : 'text-green-400'}`}>
-                         {p.stock} Crates
-                      </div>
-                  </motion.div>
-                ))}
+                {products.length === 0 ? (
+                    <div className="text-center py-10 bg-slate-900 rounded-xl border border-white/5 border-dashed">
+                        <Package size={40} className="mx-auto text-slate-700 mb-2"/>
+                        <p className="text-slate-500 text-sm">No products found.</p>
+                        <button onClick={handleAddClick} className="mt-4 bg-cyan-600 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider">Initialize Inventory</button>
+                    </div>
+                ) : (
+                    products.map((p, i) => (
+                    <motion.div initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: i * 0.1 }} key={p._id || p.id} className="bg-slate-900 p-4 rounded-xl border border-white/5 flex items-center gap-4">
+                        <div className="w-10 h-10 bg-white/5 rounded-lg p-1">
+                            <img src={p.img || p.imageUrl} className="w-full h-full object-contain" alt="" />
+                        </div>
+                        <div className="flex-1">
+                            <div className="font-bold">{p.size}</div>
+                            <div className="text-xs text-slate-500">Capacity: {p.crateSize} units/crate</div>
+                        </div>
+                        <div className={`text-sm font-bold ${p.stock < 50 ? 'text-red-400' : 'text-green-400'}`}>
+                            {p.stock} Crates
+                        </div>
+                    </motion.div>
+                    ))
+                )}
               </div>
             </div>
           </motion.div>
@@ -525,11 +632,24 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
         {/* STOCK */}
         {activeTab === 'stock' && (
            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-              <h2 className="text-xl font-bold">Inventory Control</h2>
+              <div className="flex justify-between items-center">
+                  <h2 className="text-xl font-bold">Inventory Control</h2>
+                  <button onClick={handleAddClick} className="bg-cyan-600 text-white p-2 rounded-lg hover:bg-cyan-500 transition-colors shadow-lg shadow-cyan-500/20">
+                      <Plus size={20}/>
+                  </button>
+              </div>
+              
+              {products.length === 0 && <div className="text-center text-slate-500 py-10">Inventory is empty. Add items.</div>}
+
               {products.map((p, i) => (
-                 <motion.div initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: i * 0.1 }} key={p._id || p.id} className="bg-slate-900 p-6 rounded-2xl border border-white/5 flex flex-col gap-4">
+                 <motion.div initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: i * 0.1 }} key={p._id || p.id} className="bg-slate-900 p-6 rounded-2xl border border-white/5 flex flex-col gap-4 relative group">
+                    <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => handleEditClick(p)} className="p-2 bg-white/10 rounded-full hover:bg-white/20 text-cyan-400"><Edit size={14}/></button>
+                        <button onClick={() => handleDeleteClick(p._id || p.id)} className="p-2 bg-white/10 rounded-full hover:bg-red-500/20 text-red-400"><Trash2 size={14}/></button>
+                    </div>
+
                     <div className="flex items-center gap-4">
-                       <img src={p.img} className="w-16 h-16 object-contain" alt="" />
+                       <img src={p.img || p.imageUrl} className="w-16 h-16 object-contain" alt="" />
                        <div>
                           <h3 className="text-lg font-bold">{p.size}</h3>
                           <div className="text-xs text-slate-500">Price: ₹{p.pricePerCrate}</div>
@@ -852,7 +972,7 @@ export default function App() {
   const [token, setToken] = useState(localStorage.getItem('adminToken') || null);
 
   // DYNAMIC DATA STATES
-  const [products, setProducts] = useState(INITIAL_PRODUCTS);
+  const [products, setProducts] = useState([]); // ✅ No Initial Products (Clean Start)
   const [orders, setOrders] = useState([]);
   const [dealers, setDealers] = useState([]);
   
@@ -882,7 +1002,10 @@ export default function App() {
         if (data && data.length > 0) {
             setProducts(data);
         }
-    } catch (err) { console.error("API Error - Using Local Data", err); }
+    } catch (err) { 
+        console.error("API Error - No Data", err); 
+        // We do NOT set fallback data here, so screen stays clean if API fails
+    }
   };
 
   const fetchAdminData = async () => {
@@ -1091,6 +1214,44 @@ export default function App() {
       } catch (err) { toast.error('Transaction failed'); }
   };
 
+  // ✅ NEW: Handle Product Save (Create/Update)
+  const handleSaveProduct = async (productData) => {
+      try {
+          const url = productData._id 
+            ? `${API_URL}/api/products/${productData._id}` 
+            : `${API_URL}/api/products`;
+          
+          const method = productData._id ? 'PUT' : 'POST';
+
+          const res = await fetch(url, {
+              method: method,
+              headers: { 'Content-Type': 'application/json', 'x-auth-token': token },
+              body: JSON.stringify(productData)
+          });
+
+          if (!res.ok) throw new Error('Failed to save');
+          
+          // Optimistic Update handled by socket usually, but force fetch here for safety
+          fetchProducts();
+          toast.success(productData._id ? "Product Updated" : "Product Created");
+      } catch (err) {
+          toast.error("Operation Failed");
+      }
+  };
+
+  // ✅ NEW: Handle Product Delete
+  const handleDeleteProduct = async (id) => {
+      try {
+          await fetch(`${API_URL}/api/products/${id}`, {
+              method: 'DELETE',
+              headers: { 'x-auth-token': token }
+          });
+          toast.success("Product Deleted");
+      } catch (err) {
+          toast.error("Delete Failed");
+      }
+  }
+
   if (loading) return <SplashLoader />;
 
   // RENDER: Admin View
@@ -1105,6 +1266,8 @@ export default function App() {
           onStockUpdate={handleStockUpdate}
           onStatusUpdate={handleOrderStatus}
           onDealerUpdate={handleDealerTransaction}
+          onSaveProduct={handleSaveProduct}
+          onDeleteProduct={handleDeleteProduct}
           onLogout={handleLogout} 
         />
       </>
@@ -1152,10 +1315,19 @@ export default function App() {
                <p className="text-slate-400 mt-2 text-sm">Select crates count for your shop/godown.</p>
             </Reveal>
           </div>
+          
+          {/* Dynamic Product List (Empty State Handling) */}
           <div className="flex overflow-x-auto snap-x snap-mandatory gap-6 px-6 pb-12 scrollbar-hide pt-10">
-            {products.map((p, index) => (
-              <ProductCard key={p._id || p.id} index={index} p={p} onUpdateCart={handleUpdateCart} cartItem={cart[p._id || p.id]} />
-            ))}
+            {products.length === 0 ? (
+                <div className="w-full text-center py-20 border border-dashed border-white/10 rounded-3xl mx-6">
+                    <Package size={48} className="mx-auto text-slate-700 mb-4"/>
+                    <p className="text-slate-500">Inventory Loading or Empty...</p>
+                </div>
+            ) : (
+                products.map((p, index) => (
+                <ProductCard key={p._id || p.id} index={index} p={p} onUpdateCart={handleUpdateCart} cartItem={cart[p._id || p.id]} />
+                ))
+            )}
           </div>
         </section>
 
