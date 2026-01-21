@@ -13,18 +13,26 @@ const dealerRoutes = require('./routes/dealerRoutes');
 
 const app = express();
 
+const FRONTEND_URL = process.env.FRONTEND_URL;
+
 // --- 1. HTTP SERVER & SOCKET SETUP ---
 const server = http.createServer(app); // App ko wrap kiya
 const io = new Server(server, {
   cors: {
-    origin: "*", // React App ka URL (Production me isko specific domain kar dena)
+    origin: FRONTEND_URL, // Socket ab specific frontend ko allow karega
     methods: ["GET", "POST", "PUT", "DELETE"]
   }
 });
 
 // --- 2. MIDDLEWARE ---
 app.use(express.json());
-app.use(cors());
+
+// ✅ Express CORS bhi update kiya
+app.use(cors({
+  origin: FRONTEND_URL,
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true
+}));
 
 // 🔥 IMPORTANT: Make 'io' accessible in all Controllers
 app.use((req, res, next) => {
