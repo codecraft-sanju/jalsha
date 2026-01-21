@@ -17,7 +17,7 @@ import {
   BookOpen, Plus, Minus, Wallet, Lock, Loader2
 } from 'lucide-react';
 import { io } from 'socket.io-client';
-import { Toaster, toast } from 'react-hot-toast'; // ✅ NEW: Professional Notifications
+import { Toaster, toast } from 'react-hot-toast'; // ✅ Professional Notifications added
 
 // --- CONFIGURATION & ASSETS ---
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
@@ -30,40 +30,22 @@ const IMG_200ML = "./200litre.png";
 const IMG_1L = "./1litre.png";
 const IMG_20L = "./20litre.png";
 
-// --- 1. INITIAL DATA (Fallback for Empty DB) ---
+// --- 1. INITIAL DATA (Fallback) ---
 const INITIAL_PRODUCTS = [
   { 
-    _id: "p1", 
-    id: "p1",
-    size: "200ml", 
-    img: IMG_200ML, 
-    crateSize: 30, 
-    pricePerCrate: 240, 
-    stock: 500, 
-    desc: "Weddings & Events Preferred", 
-    tag: "High Volume" 
+    _id: "p1", id: "p1", size: "200ml", img: IMG_200ML, 
+    crateSize: 30, pricePerCrate: 240, stock: 500, 
+    desc: "Weddings & Events Preferred", tag: "High Volume" 
   },
   { 
-    _id: "p2",
-    id: "p2",
-    size: "1 Litre", 
-    img: IMG_1L, 
-    crateSize: 12, 
-    pricePerCrate: 180, 
-    stock: 120, 
-    desc: "Retail & Shop Standard", 
-    tag: "Best Seller" 
+    _id: "p2", id: "p2", size: "1 Litre", img: IMG_1L, 
+    crateSize: 12, pricePerCrate: 180, stock: 120, 
+    desc: "Retail & Shop Standard", tag: "Best Seller" 
   },
   { 
-    _id: "p3",
-    id: "p3",
-    size: "20 Litre", 
-    img: IMG_20L, 
-    crateSize: 1, 
-    pricePerCrate: 60, 
-    stock: 50, 
-    desc: "Office & Home Delivery", 
-    tag: "Recurring" 
+    _id: "p3", id: "p3", size: "20 Litre", img: IMG_20L, 
+    crateSize: 1, pricePerCrate: 60, stock: 50, 
+    desc: "Office & Home Delivery", tag: "Recurring" 
   },
 ];
 
@@ -77,13 +59,14 @@ const BlurPatch = ({ color = "bg-cyan-500", className }) => (
   <div className={`absolute rounded-full blur-[100px] opacity-20 pointer-events-none ${color} ${className}`} />
 );
 
-// ✅ NEW: Reusable Spinner Component
-const Spinner = () => (
+// ✅ NEW: Reusable Spinner Component for Loaders
+const Spinner = ({ size = 18, color = "text-white/80" }) => (
   <motion.div 
     animate={{ rotate: 360 }}
     transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
+    className="flex items-center justify-center"
   >
-    <Loader2 size={18} className="text-white/80" />
+    <Loader2 size={size} className={color} />
   </motion.div>
 );
 
@@ -115,7 +98,7 @@ const Reveal = ({ children, direction = "up", delay = 0, className = "" }) => {
   );
 };
 
-// ✅ UPDATED: Supports 'loading' prop now
+// ✅ UPDATED: Button with automatic Loader support
 const LuxuryButton = ({ children, primary = false, onClick, className = "", icon: Icon, disabled, loading = false }) => (
   <motion.button
     whileHover={{ scale: (disabled || loading) ? 1 : 1.05 }}
@@ -132,7 +115,7 @@ const LuxuryButton = ({ children, primary = false, onClick, className = "", icon
   >
     <span className="relative z-10 flex items-center gap-2">
       {loading ? (
-         <>Processing <Spinner /></>
+         <>Processing <Spinner size={16} color={primary ? "text-slate-900" : "text-white"} /></>
       ) : (
          <>
            {children}
@@ -361,6 +344,26 @@ const ProductCard = ({ p, onUpdateCart, cartItem, index }) => {
 
 // --- ADMIN PANEL COMPONENTS ---
 
+// Helper button for Admin Actions
+const AdminActionButton = ({ onClick, loading, children, className, variant="primary" }) => {
+  return (
+    <motion.button
+      whileTap={{ scale: 0.95 }}
+      disabled={loading}
+      onClick={onClick}
+      className={`w-full py-3 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2 
+        ${loading ? 'opacity-70 cursor-not-allowed' : ''}
+        ${variant === "primary" ? 'bg-cyan-600 hover:bg-cyan-500 text-white' : ''}
+        ${variant === "success" ? 'bg-slate-800 hover:bg-slate-700 text-green-400' : ''}
+        ${variant === "outline" ? 'bg-green-600/20 text-green-400 border border-green-600/50 hover:bg-green-600 hover:text-white' : ''}
+        ${className}
+      `}
+    >
+      {loading ? <Spinner size={16} color="text-white" /> : children}
+    </motion.button>
+  );
+};
+
 const NavButton = ({ icon: Icon, label, active, onClick, count }) => (
   <button onClick={onClick} className={`flex flex-col items-center gap-1 transition-colors ${active ? 'text-cyan-400' : 'text-slate-500'}`}>
     <div className="relative">
@@ -377,6 +380,7 @@ const NavButton = ({ icon: Icon, label, active, onClick, count }) => (
 
 const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, onDealerUpdate, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [loadingAction, setLoadingAction] = useState(null); // Track which ID is loading
   
   const safeOrders = Array.isArray(orders) ? orders : [];
   const safeDealers = Array.isArray(dealers) ? dealers : [];
@@ -384,10 +388,24 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
   const totalRevenue = safeOrders.reduce((acc, o) => acc + (o.totalAmount || 0), 0);
   const pendingCount = safeOrders.filter(o => o.status === 'Pending').length;
 
-  const handleDealerPay = (id, currentBalance) => {
+  const handleStockClick = async (id, newStock) => {
+      setLoadingAction(id); // Set loading for this specific product ID
+      await onStockUpdate(id, newStock);
+      setLoadingAction(null);
+  };
+
+  const handleStatusClick = async (id, status) => {
+      setLoadingAction(id);
+      await onStatusUpdate(id, status);
+      setLoadingAction(null);
+  };
+
+  const handleDealerPay = async (id, currentBalance) => {
     const amount = prompt("Enter payment amount received (₹):");
     if (amount) {
-      onDealerUpdate(id, amount, 'payment');
+      setLoadingAction(id);
+      await onDealerUpdate(id, amount, 'payment');
+      setLoadingAction(null);
     }
   };
 
@@ -482,14 +500,22 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                 </div>
 
                 {order.status === 'Pending' && (
-                   <motion.button whileTap={{scale: 0.95}} onClick={() => onStatusUpdate(order._id, 'Dispatched')} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white py-3 rounded-xl font-bold text-sm transition-colors">
+                   <AdminActionButton 
+                      onClick={() => handleStatusClick(order._id, 'Dispatched')} 
+                      loading={loadingAction === order._id}
+                      variant="primary"
+                   >
                      Accept & Dispatch
-                   </motion.button>
+                   </AdminActionButton>
                 )}
                 {order.status === 'Dispatched' && (
-                   <motion.button whileTap={{scale: 0.95}} onClick={() => onStatusUpdate(order._id, 'Delivered')} className="w-full bg-slate-800 hover:bg-slate-700 text-green-400 py-3 rounded-xl font-bold text-sm transition-colors flex items-center justify-center gap-2">
+                   <AdminActionButton 
+                      onClick={() => handleStatusClick(order._id, 'Delivered')} 
+                      loading={loadingAction === order._id}
+                      variant="success"
+                   >
                       <CheckCircle size={16} /> Mark Delivered
-                   </motion.button>
+                   </AdminActionButton>
                 )}
               </motion.div>
             ))}
@@ -511,15 +537,23 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                     </div>
                     
                     <div className="bg-black/40 p-2 rounded-xl flex items-center justify-between">
-                       <motion.button whileTap={{scale: 0.9}} onClick={() => onStockUpdate(p._id, Math.max(0, p.stock - 10))} className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center text-white hover:bg-red-500/20 hover:text-red-400 transition-colors">
-                          <Minus size={16}/>
+                       <motion.button 
+                          whileTap={{scale: 0.9}} 
+                          onClick={() => handleStockClick(p._id, Math.max(0, p.stock - 10))} 
+                          className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center text-white hover:bg-red-500/20 hover:text-red-400 transition-colors"
+                       >
+                          {loadingAction === p._id ? <Spinner size={12} /> : <Minus size={16}/>}
                        </motion.button>
                        <div className="text-center">
                           <div className="text-2xl font-mono font-bold">{p.stock}</div>
                           <div className="text-[9px] uppercase tracking-widest text-slate-500">Crates Available</div>
                        </div>
-                       <motion.button whileTap={{scale: 0.9}} onClick={() => onStockUpdate(p._id, p.stock + 10)} className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center text-white hover:bg-green-500/20 hover:text-green-400 transition-colors">
-                          <Plus size={16}/>
+                       <motion.button 
+                          whileTap={{scale: 0.9}} 
+                          onClick={() => handleStockClick(p._id, p.stock + 10)} 
+                          className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center text-white hover:bg-green-500/20 hover:text-green-400 transition-colors"
+                       >
+                          {loadingAction === p._id ? <Spinner size={12} /> : <Plus size={16}/>}
                        </motion.button>
                     </div>
                  </motion.div>
@@ -552,13 +586,16 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                     
                     <div className="flex items-center justify-between bg-black/20 p-3 rounded-xl">
                        <div className="text-xs text-slate-400">Last: <span className="text-white">{d.lastPaymentAmount ? `₹${d.lastPaymentAmount}` : 'N/A'}</span></div>
-                       <motion.button 
-                          whileTap={{scale: 0.95}}
-                          onClick={() => handleDealerPay(d._id, d.balance)}
-                          className="bg-green-600/20 text-green-400 border border-green-600/50 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-green-600 hover:text-white transition-all flex items-center gap-2"
-                       >
-                          <Wallet size={12}/> Record Pay
-                       </motion.button>
+                       <div className="w-32">
+                         <AdminActionButton 
+                            onClick={() => handleDealerPay(d._id, d.balance)}
+                            loading={loadingAction === d._id}
+                            variant="outline"
+                            className="py-2 text-xs uppercase"
+                         >
+                            <Wallet size={12}/> Pay
+                         </AdminActionButton>
+                       </div>
                     </div>
                  </motion.div>
               ))}
@@ -1007,7 +1044,16 @@ export default function App() {
             toast.success("Order Placed Successfully!");
         }
     } catch (err) {
-        toast.error("Failed to connect to server");
+        // If Backend Fails, still open WhatsApp
+        toast.error("Connecting to WhatsApp directly...");
+        let message = `*Wholesale Inquiry - जलsa Water*\n\nI have placed an order via website:\n`;
+        items.forEach(item => {
+            message += `🔹 ${item.size} x ${item.quantity} Crates\n`;
+        });
+        message += `\n*Total Value: ₹${totalEstimate.toLocaleString()}*`;
+        window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`, '_blank');
+        setCart({});
+        setCartOpen(false);
     }
   };
 
