@@ -1,12 +1,11 @@
-import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   motion, 
   AnimatePresence, 
   useScroll, 
   useTransform, 
   useSpring, 
-  useMotionValue,
-  useMotionTemplate
+  useMotionValue
 } from 'framer-motion';
 import { 
   Droplets, X, Menu, 
@@ -20,55 +19,70 @@ import {
 import { io } from 'socket.io-client';
 
 // --- CONFIGURATION & ASSETS ---
+// ✅ CHANGE: Ab yeh values .env file se aayengi
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER || "919867165845";
 
 const NOISE_BG = "url('https://grainy-gradients.vercel.app/noise.svg')";
 
-// ✅ YOUR LOCAL IMAGES
+// ✅ YOUR LOCAL IMAGES (Make sure these exist in /public folder)
 const IMG_200ML = "./200litre.png"; 
 const IMG_1L = "./1litre.png";
 const IMG_20L = "./20litre.png";
 
-// --- 1. INITIAL DATA ---
+// --- 1. INITIAL DATA (Fallback for Empty DB) ---
 const INITIAL_PRODUCTS = [
   { 
-    _id: "p1", id: "p1",
-    size: "200ml", img: IMG_200ML, 
-    crateSize: 30, pricePerCrate: 240, stock: 500, 
-    desc: "Weddings & Events Preferred", tag: "High Volume" 
+    _id: "p1", 
+    id: "p1",
+    size: "200ml", 
+    img: IMG_200ML, 
+    crateSize: 30, 
+    pricePerCrate: 240, 
+    stock: 500, 
+    desc: "Weddings & Events Preferred", 
+    tag: "High Volume" 
   },
   { 
-    _id: "p2", id: "p2",
-    size: "1 Litre", img: IMG_1L, 
-    crateSize: 12, pricePerCrate: 180, stock: 120, 
-    desc: "Retail & Shop Standard", tag: "Best Seller" 
+    _id: "p2",
+    id: "p2",
+    size: "1 Litre", 
+    img: IMG_1L, 
+    crateSize: 12, 
+    pricePerCrate: 180, 
+    stock: 120, 
+    desc: "Retail & Shop Standard", 
+    tag: "Best Seller" 
   },
   { 
-    _id: "p3", id: "p3",
-    size: "20 Litre", img: IMG_20L, 
-    crateSize: 1, pricePerCrate: 60, stock: 50, 
-    desc: "Office & Home Delivery", tag: "Recurring" 
+    _id: "p3",
+    id: "p3",
+    size: "20 Litre", 
+    img: IMG_20L, 
+    crateSize: 1, 
+    pricePerCrate: 60, 
+    stock: 50, 
+    desc: "Office & Home Delivery", 
+    tag: "Recurring" 
   },
 ];
 
 // --- VISUAL MICRO-COMPONENTS ---
 
-// Memoized to prevent re-renders on scroll
-const GrainOverlay = memo(() => (
-  <div className="pointer-events-none fixed inset-0 z-[1] opacity-[0.03] mix-blend-overlay will-change-transform" style={{ backgroundImage: NOISE_BG }} />
-));
+const GrainOverlay = () => (
+  <div className="pointer-events-none fixed inset-0 z-[10] opacity-[0.04] mix-blend-overlay" style={{ backgroundImage: NOISE_BG }} />
+);
 
-const BlurPatch = memo(({ color = "bg-cyan-500", className }) => (
-  <div className={`absolute rounded-full blur-[80px] opacity-20 pointer-events-none ${color} ${className}`} />
-));
+const BlurPatch = ({ color = "bg-cyan-500", className }) => (
+  <div className={`absolute rounded-full blur-[100px] opacity-20 pointer-events-none ${color} ${className}`} />
+);
 
 const Reveal = ({ children, direction = "up", delay = 0, className = "" }) => {
   const variants = {
     hidden: { 
       opacity: 0, 
-      y: direction === "up" ? 40 : direction === "down" ? -40 : 0,
-      x: direction === "left" ? -40 : direction === "right" ? 40 : 0
+      y: direction === "up" ? 50 : direction === "down" ? -50 : 0,
+      x: direction === "left" ? -50 : direction === "right" ? 50 : 0
     },
     visible: { 
       opacity: 1, 
@@ -82,7 +96,7 @@ const Reveal = ({ children, direction = "up", delay = 0, className = "" }) => {
     <motion.div
       initial="hidden"
       whileInView="visible"
-      viewport={{ once: true, margin: "-50px" }}
+      viewport={{ once: true, margin: "-100px" }}
       variants={variants}
       className={className}
     >
@@ -91,17 +105,17 @@ const Reveal = ({ children, direction = "up", delay = 0, className = "" }) => {
   );
 };
 
-const LuxuryButton = memo(({ children, primary = false, onClick, className = "", icon: Icon, disabled }) => (
+const LuxuryButton = ({ children, primary = false, onClick, className = "", icon: Icon, disabled }) => (
   <motion.button
-    whileHover={{ scale: disabled ? 1 : 1.02 }}
-    whileTap={{ scale: disabled ? 1 : 0.98 }}
+    whileHover={{ scale: disabled ? 1 : 1.05 }}
+    whileTap={{ scale: disabled ? 1 : 0.95 }}
     onClick={onClick}
     disabled={disabled}
-    className={`relative px-8 py-4 rounded-full font-bold text-sm tracking-widest uppercase overflow-hidden group transition-all duration-300 flex items-center justify-center gap-3 transform-gpu ${
+    className={`relative px-8 py-4 rounded-full font-bold text-sm tracking-widest uppercase overflow-hidden group transition-all duration-500 flex items-center justify-center gap-3 ${
       disabled 
         ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
         : primary 
-          ? 'bg-cyan-500 text-slate-950 shadow-[0_0_20px_-5px_rgba(6,182,212,0.4)] hover:shadow-[0_0_40px_-5px_rgba(6,182,212,0.6)]' 
+          ? 'bg-cyan-500 text-slate-950 shadow-[0_0_30px_-5px_rgba(6,182,212,0.4)] hover:shadow-[0_0_50px_-5px_rgba(6,182,212,0.6)]' 
           : 'bg-white/5 border border-white/10 text-white hover:bg-white/10'
     } ${className}`}
   >
@@ -113,42 +127,44 @@ const LuxuryButton = memo(({ children, primary = false, onClick, className = "",
       <div className="absolute inset-0 bg-white/30 translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out" />
     )}
   </motion.button>
-));
+);
 
-const ShimmerHeadline = memo(() => {
+const ShimmerHeadline = () => {
   return (
-    <div className="relative inline-block transform-gpu">
+    <div className="relative inline-block">
       <h1 className="text-6xl md:text-[10rem] font-black text-white/10 leading-[0.8] tracking-tighter select-none mix-blend-overlay">
         BULK SUPPLY
       </h1>
       <motion.div 
         className="absolute inset-0 text-6xl md:text-[10rem] font-black leading-[0.8] tracking-tighter select-none text-transparent bg-clip-text bg-[linear-gradient(110deg,rgba(255,255,255,0.1)_40%,#22d3ee_50%,rgba(255,255,255,0.1)_60%)] bg-[length:250%_100%]"
         animate={{ backgroundPosition: ["100% 0%", "-100% 0%"] }}
-        transition={{ duration: 4, ease: "linear", repeat: Infinity }}
-        style={{ WebkitBackgroundClip: "text", willChange: "background-position" }}
+        transition={{ duration: 3, ease: "easeInOut", repeat: Infinity, repeatDelay: 0.5 }}
+        style={{ WebkitBackgroundClip: "text" }}
       >
         BULK SUPPLY
       </motion.div>
+      <div className="absolute inset-0 text-6xl md:text-[10rem] font-black leading-[0.8] tracking-tighter select-none text-transparent bg-clip-text bg-gradient-to-b from-white via-white/50 to-transparent opacity-80 pointer-events-none">
+        BULK SUPPLY
+      </div>
     </div>
   );
-});
+};
 
-const FloatingBubbles = memo(() => {
-  // Reduced number of bubbles for performance
-  const bubbles = useMemo(() => Array.from({ length: 8 }).map((_, i) => ({
+const FloatingBubbles = () => {
+  const bubbles = Array.from({ length: 15 }).map((_, i) => ({
     id: i,
-    size: Math.random() * 15 + 5,
+    size: Math.random() * 20 + 5,
     left: Math.random() * 100,
-    duration: Math.random() * 10 + 15,
+    duration: Math.random() * 10 + 10,
     delay: Math.random() * 5
-  })), []);
+  }));
 
   return (
-    <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
+    <div className="fixed inset-0 z-[1] pointer-events-none overflow-hidden">
       {bubbles.map(b => (
         <motion.div
           key={b.id}
-          className="absolute rounded-full bg-cyan-500/5 border border-cyan-500/10 will-change-transform"
+          className="absolute rounded-full bg-cyan-500/10 backdrop-blur-sm border border-cyan-500/10"
           style={{ width: b.size, height: b.size, left: `${b.left}%`, bottom: -50 }}
           animate={{ y: -1200, opacity: [0, 1, 0] }}
           transition={{ duration: b.duration, repeat: Infinity, delay: b.delay, ease: "linear" }}
@@ -156,17 +172,17 @@ const FloatingBubbles = memo(() => {
       ))}
     </div>
   );
-});
+};
 
 // --- CUSTOMER UI COMPONENTS ---
 
-const MobileDock = memo(({ itemCount, onOpenCart, onOpenMenu }) => {
+const MobileDock = ({ itemCount, onOpenCart, onOpenMenu }) => {
   return (
     <motion.div 
-      initial={{ y: 100 }} animate={{ y: 0 }} transition={{ delay: 1, type: "spring", stiffness: 100 }}
-      className="fixed bottom-6 left-4 right-4 h-16 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-2xl z-[50] flex items-center justify-between px-8 shadow-2xl shadow-black/80 md:hidden will-change-transform"
+      initial={{ y: 100 }} animate={{ y: 0 }} transition={{ delay: 1, type: "spring" }}
+      className="fixed bottom-6 left-4 right-4 h-16 bg-slate-900/90 backdrop-blur-xl border border-white/10 rounded-2xl z-[50] flex items-center justify-between px-8 shadow-2xl shadow-black/80 md:hidden"
     >
-      <button onClick={onOpenMenu} className="text-white/60 hover:text-cyan-400 transition-colors p-2">
+      <button onClick={onOpenMenu} className="text-white/60 hover:text-cyan-400 transition-colors">
         <Menu size={24} />
       </button>
       
@@ -180,124 +196,110 @@ const MobileDock = memo(({ itemCount, onOpenCart, onOpenMenu }) => {
         </motion.button>
       </div>
 
-      <button onClick={onOpenCart} className="relative text-white/60 hover:text-cyan-400 transition-colors p-2">
+      <button onClick={onOpenCart} className="relative text-white/60 hover:text-cyan-400 transition-colors">
         <Package size={24} />
         {itemCount > 0 && (
-          <span className="absolute top-0 right-0 w-4 h-4 bg-red-500 rounded-full text-[10px] flex items-center justify-center text-white font-bold shadow-lg">
+          <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[10px] flex items-center justify-center text-white font-bold animate-pulse shadow-lg">
             {itemCount}
           </span>
         )}
       </button>
     </motion.div>
   );
-});
+};
 
-const ParallaxBottle = memo(() => {
+const ParallaxBottle = () => {
   const { scrollY } = useScroll();
-  // Smoother physics settings: Higher damping prevents jitter
-  const smoothY = useSpring(scrollY, { damping: 40, stiffness: 60, mass: 0.5 }); 
-  
-  const y = useTransform(smoothY, [0, 800], ['-35%', '35%']);
-  const scale = useTransform(smoothY, [0, 500], [1.1, 0.95]); 
-  const opacity = useTransform(smoothY, [700, 1100], [1, 0]);
+  const smoothY = useSpring(scrollY, { damping: 15, stiffness: 100 }); 
+  const y = useTransform(smoothY, [0, 500, 1000], ['-35%', '25%', '50%']);
+  const rotate = useTransform(smoothY, [0, 500], [5, 0]); 
+  const scale = useTransform(smoothY, [0, 500], [1.1, 0.9]); 
+  const opacity = useTransform(smoothY, [800, 1200], [1, 0]);
   
   return (
     <div className="fixed inset-0 pointer-events-none z-0 flex items-center justify-center overflow-hidden">
-      <BlurPatch className="w-[80vw] h-[80vw] bg-cyan-500/10 md:opacity-10" />
-      <motion.div 
-        style={{ y, scale, opacity, willChange: "transform" }} 
-        className="relative h-[65vh] md:h-[95vh] w-auto aspect-[1/3] z-20 transform-gpu"
-      >
+      <BlurPatch className="w-[80vw] h-[80vw] bg-cyan-500/20 md:opacity-10" />
+      <motion.div style={{ y, rotate, scale, opacity }} className="relative h-[65vh] md:h-[95vh] w-auto aspect-[1/3] z-20">
         <img 
           src={IMG_1L} alt="Jalsa Premium" 
-          className="w-full h-full object-contain drop-shadow-[0_40px_80px_rgba(0,0,0,0.6)]"
-          loading="eager"
+          className="w-full h-full object-contain drop-shadow-[0_40px_80px_rgba(0,0,0,0.7)]"
+          onError={(e) => { e.target.style.display = 'none'; }}
         />
       </motion.div>
     </div>
   );
-});
+};
 
-// Memoized Product Card to prevent re-renders of the list when cart updates
-const ProductCard = memo(({ p, onUpdateCart, cartItem, index }) => {
+const ProductCard = ({ p, onUpdateCart, cartItem, index }) => {
   const quantity = cartItem ? cartItem.quantity : 0;
   
   const x = useMotionValue(0);
   const y = useMotionValue(0);
-  
-  // Only apply tilt transform on larger screens to save mobile resources
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  const rotateX = useTransform(y, [-100, 100], [isMobile ? 0 : 20, isMobile ? 0 : -20]);
-  const rotateY = useTransform(x, [-100, 100], [isMobile ? 0 : -20, isMobile ? 0 : 20]);
+  const rotateX = useTransform(y, [-100, 100], [30, -30]);
+  const rotateY = useTransform(x, [-100, 100], [-30, 30]);
 
   const isOutOfStock = p.stock <= 0;
   const isLowStock = p.stock < 50;
 
-  const handleIncrement = useCallback(() => onUpdateCart(p, quantity + 1), [p, quantity, onUpdateCart]);
-  const handleDecrement = useCallback(() => { if (quantity > 0) onUpdateCart(p, quantity - 1); }, [p, quantity, onUpdateCart]);
-  
-  const handleMouseMove = useCallback((e) => {
-    if(isMobile) return;
-    const rect = e.currentTarget.getBoundingClientRect();
-    x.set(e.clientX - rect.left - rect.width / 2);
-    y.set(e.clientY - rect.top - rect.height / 2);
-  }, [x, y, isMobile]);
-
-  const handleMouseLeave = useCallback(() => {
-    x.set(0); y.set(0);
-  }, [x, y]);
+  const handleIncrement = () => onUpdateCart(p, quantity + 1);
+  const handleDecrement = () => { if (quantity > 0) onUpdateCart(p, quantity - 1); };
 
   return (
     <motion.div 
-      initial={{ opacity: 0, y: 30 }}
+      initial={{ opacity: 0, y: 50 }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-50px" }}
+      viewport={{ once: true }}
       transition={{ delay: index * 0.1, duration: 0.5 }}
       className="snap-center shrink-0 w-[85vw] md:w-[400px] perspective-1000"
     >
       <motion.div 
-        style={{ rotateX, rotateY, z: 100, transformStyle: "preserve-3d" }}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
-        className="relative h-[550px] rounded-[2rem] bg-slate-900 border border-white/10 overflow-hidden group transition-all duration-300 hover:shadow-[0_0_50px_-20px_rgba(6,182,212,0.3)] flex flex-col transform-gpu will-change-transform"
+        style={{ rotateX, rotateY, z: 100 }}
+        whileHover={{ scale: 1.02 }}
+        onMouseMove={(e) => {
+          const rect = e.currentTarget.getBoundingClientRect();
+          x.set(e.clientX - rect.left - rect.width / 2);
+          y.set(e.clientY - rect.top - rect.height / 2);
+        }}
+        onMouseLeave={() => { x.set(0); y.set(0); }}
+        className="relative h-[600px] rounded-[2rem] bg-slate-900 border border-white/10 overflow-hidden group transition-all duration-300 hover:shadow-[0_0_50px_-20px_rgba(6,182,212,0.3)] flex flex-col"
       >
-        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10" />
+        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20" />
         
         {/* Top Half (Image) */}
         <div className="h-[55%] flex items-center justify-center bg-gradient-to-b from-slate-800 to-slate-900 relative p-6">
-           <div className="absolute inset-0 bg-cyan-500/10 group-hover:bg-cyan-500/20 transition-colors duration-500" />
+           <div className="absolute inset-0 bg-cyan-500/10 blur-3xl group-hover:bg-cyan-500/20 transition-colors duration-500" />
            <motion.img 
              src={p.img} alt={p.size} 
-             className={`h-full w-auto object-contain drop-shadow-2xl z-10 transform-gpu ${isOutOfStock ? 'grayscale opacity-50' : ''}`}
-             whileHover={!isOutOfStock && !isMobile ? { scale: 1.05, rotate: 3 } : {}}
-             transition={{ type: "spring", stiffness: 300, damping: 20 }}
+             className={`h-full w-auto object-contain drop-shadow-2xl z-10 ${isOutOfStock ? 'grayscale opacity-50' : ''}`}
+             whileHover={!isOutOfStock ? { scale: 1.1, rotate: 5 } : {}}
+             onError={(e) => e.target.style.display = 'none'}
            />
            {p.tag && !isOutOfStock && (
-             <span className="absolute top-6 right-6 bg-white text-slate-900 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider z-20 shadow-lg">
+             <span className="absolute top-6 right-6 bg-white text-slate-900 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider z-20">
                {p.tag}
              </span>
            )}
            {isOutOfStock && (
-              <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-red-500/90 backdrop-blur-sm text-white text-lg font-bold px-6 py-2 rounded-full uppercase tracking-widest z-30 border-2 border-red-400 rotate-[-10deg] shadow-xl">
+              <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-red-500/90 backdrop-blur text-white text-lg font-bold px-6 py-2 rounded-full uppercase tracking-widest z-30 border-2 border-red-400 rotate-[-10deg] shadow-xl">
                 Sold Out
               </span>
            )}
-           <div className="absolute bottom-4 left-6 bg-black/40 backdrop-blur-sm px-3 py-1 rounded-lg border border-white/10 text-[10px] text-white/70 uppercase tracking-widest">
+           <div className="absolute bottom-4 left-6 bg-black/40 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-[10px] text-white/70 uppercase tracking-widest">
               1 Crate = {p.crateSize} Units
            </div>
         </div>
 
         {/* Bottom Half */}
-        <div className="h-[45%] p-8 flex flex-col justify-between relative z-10 bg-slate-900/95 backdrop-blur-sm transform-gpu" style={{ transform: "translateZ(20px)" }}>
+        <div className="h-[45%] p-8 flex flex-col justify-between relative z-10 bg-slate-900/50 backdrop-blur-md">
           <div>
             <div className="flex justify-between items-start mb-2">
-              <h3 className="text-3xl font-bold text-white font-hindi tracking-tight">{p.size}</h3>
+              <h3 className="text-3xl font-bold text-white font-hindi">{p.size}</h3>
               <div className="text-right">
                 <span className="text-lg text-cyan-400 font-mono block">₹{p.pricePerCrate}</span>
                 <span className="text-[10px] text-slate-500 uppercase tracking-wider">Per Crate</span>
               </div>
             </div>
-            <p className="text-slate-400 text-sm leading-relaxed mb-4 line-clamp-2">{p.desc}</p>
+            <p className="text-slate-400 text-sm leading-relaxed mb-4">{p.desc}</p>
             {isLowStock && !isOutOfStock && (
               <div className="text-orange-400 text-xs flex items-center gap-1 mb-2">
                 <AlertCircle size={12} /> Only {p.stock} crates left
@@ -309,7 +311,7 @@ const ProductCard = memo(({ p, onUpdateCart, cartItem, index }) => {
               <div className={`flex items-center justify-between bg-slate-950 rounded-xl p-1 border border-white/10 ${isOutOfStock ? 'opacity-50 pointer-events-none' : ''}`}>
                 <button 
                   onClick={handleDecrement}
-                  className="w-12 h-12 flex items-center justify-center text-white hover:bg-white/10 rounded-lg transition-colors active:scale-95"
+                  className="w-12 h-12 flex items-center justify-center text-white hover:bg-white/10 rounded-lg transition-colors"
                 > - </button>
                 <div className="flex flex-col items-center">
                    <span className="text-white font-mono text-xl font-bold">{quantity}</span>
@@ -317,24 +319,24 @@ const ProductCard = memo(({ p, onUpdateCart, cartItem, index }) => {
                 </div>
                 <button 
                   onClick={handleIncrement}
-                  className="w-12 h-12 flex items-center justify-center text-white bg-cyan-600 hover:bg-cyan-500 rounded-lg transition-colors shadow-lg shadow-cyan-500/20 active:scale-95"
+                  className="w-12 h-12 flex items-center justify-center text-white bg-cyan-600 hover:bg-cyan-500 rounded-lg transition-colors shadow-lg shadow-cyan-500/20"
                 > + </button>
               </div>
+              {quantity > 0 && (
+                <div className="text-center text-[11px] text-cyan-400/80 tracking-wide animate-pulse">
+                  Total Bottles: {quantity * p.crateSize}
+                </div>
+              )}
           </div>
         </div>
       </motion.div>
     </motion.div>
   );
-}, (prev, next) => {
-  // Custom comparison to prevent re-renders if only cart quantity changes for THIS item
-  const prevQty = prev.cartItem ? prev.cartItem.quantity : 0;
-  const nextQty = next.cartItem ? next.cartItem.quantity : 0;
-  return prevQty === nextQty && prev.p.stock === next.p.stock; 
-});
+};
 
 // --- ADMIN PANEL COMPONENTS ---
 
-const NavButton = memo(({ icon: Icon, label, active, onClick, count }) => (
+const NavButton = ({ icon: Icon, label, active, onClick, count }) => (
   <button onClick={onClick} className={`flex flex-col items-center gap-1 transition-colors ${active ? 'text-cyan-400' : 'text-slate-500'}`}>
     <div className="relative">
        <Icon size={24} strokeWidth={active ? 2.5 : 2} />
@@ -346,28 +348,29 @@ const NavButton = memo(({ icon: Icon, label, active, onClick, count }) => (
     </div>
     <span className="text-[10px] font-medium">{label}</span>
   </button>
-));
+);
 
-const AdminView = memo(({ products, orders, dealers, onStockUpdate, onStatusUpdate, onDealerUpdate, onLogout }) => {
+const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, onDealerUpdate, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
   
-  const safeOrders = useMemo(() => Array.isArray(orders) ? orders : [], [orders]);
-  const safeDealers = useMemo(() => Array.isArray(dealers) ? dealers : [], [dealers]);
+  // ✅ FIX: Ensure orders/dealers are always arrays (Prevents .reduce() error)
+  const safeOrders = Array.isArray(orders) ? orders : [];
+  const safeDealers = Array.isArray(dealers) ? dealers : [];
 
-  const totalRevenue = useMemo(() => safeOrders.reduce((acc, o) => acc + (o.totalAmount || 0), 0), [safeOrders]);
-  const pendingCount = useMemo(() => safeOrders.filter(o => o.status === 'Pending').length, [safeOrders]);
+  const totalRevenue = safeOrders.reduce((acc, o) => acc + (o.totalAmount || 0), 0);
+  const pendingCount = safeOrders.filter(o => o.status === 'Pending').length;
 
-  const handleDealerPay = useCallback((id) => {
+  const handleDealerPay = (id, currentBalance) => {
     const amount = prompt("Enter payment amount received (₹):");
     if (amount) {
       onDealerUpdate(id, amount, 'payment');
     }
-  }, [onDealerUpdate]);
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 pb-24 text-slate-100 font-sans">
       <GrainOverlay />
-      <header className="sticky top-0 z-40 bg-slate-900/90 backdrop-blur-md border-b border-white/10 px-6 py-4 flex justify-between items-center">
+      <header className="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-md border-b border-white/10 px-6 py-4 flex justify-between items-center">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-cyan-500 flex items-center justify-center text-slate-950">
             <Droplets size={20} fill="currentColor" />
@@ -388,11 +391,11 @@ const AdminView = memo(({ products, orders, dealers, onStockUpdate, onStatusUpda
         {activeTab === 'dashboard' && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
             <div className="grid grid-cols-2 gap-4">
-              <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-slate-900 p-5 rounded-2xl border border-white/5">
+              <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-slate-900 p-5 rounded-2xl border border-white/5">
                 <div className="text-slate-400 text-xs uppercase mb-2">Total Sales</div>
                 <div className="text-2xl font-bold text-cyan-400">₹{totalRevenue.toLocaleString()}</div>
               </motion.div>
-              <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.1 }} className="bg-slate-900 p-5 rounded-2xl border border-white/5">
+              <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ delay: 0.1 }} className="bg-slate-900 p-5 rounded-2xl border border-white/5">
                 <div className="text-slate-400 text-xs uppercase mb-2">Pending Orders</div>
                 <div className="text-2xl font-bold text-orange-400">{pendingCount}</div>
               </motion.div>
@@ -402,7 +405,7 @@ const AdminView = memo(({ products, orders, dealers, onStockUpdate, onStatusUpda
               <h2 className="text-sm font-bold uppercase tracking-widest text-slate-500 mb-4">Live Inventory Overview</h2>
               <div className="space-y-3">
                 {products.map((p, i) => (
-                  <motion.div initial={{ x: -10, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: i * 0.05 }} key={p._id || p.id} className="bg-slate-900 p-4 rounded-xl border border-white/5 flex items-center gap-4">
+                  <motion.div initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: i * 0.1 }} key={p._id || p.id} className="bg-slate-900 p-4 rounded-xl border border-white/5 flex items-center gap-4">
                       <div className="w-10 h-10 bg-white/5 rounded-lg p-1">
                          <img src={p.img} className="w-full h-full object-contain" alt="" />
                       </div>
@@ -426,7 +429,7 @@ const AdminView = memo(({ products, orders, dealers, onStockUpdate, onStatusUpda
             <h2 className="text-xl font-bold">Orders Management</h2>
             {safeOrders.length === 0 && <div className="text-slate-500 text-center py-10">No orders yet.</div>}
             {safeOrders.map((order, i) => (
-              <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: i * 0.05 }} key={order._id || order.id} className="bg-slate-900 p-5 rounded-2xl border border-white/5 shadow-lg relative overflow-hidden">
+              <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: i * 0.1 }} key={order._id || order.id} className="bg-slate-900 p-5 rounded-2xl border border-white/5 shadow-lg relative overflow-hidden">
                 <div className={`absolute top-0 right-0 px-3 py-1 text-[10px] font-bold uppercase rounded-bl-xl ${
                    order.status === 'Pending' ? 'bg-orange-500/20 text-orange-400' :
                    order.status === 'Dispatched' ? 'bg-blue-500/20 text-blue-400' :
@@ -456,7 +459,7 @@ const AdminView = memo(({ products, orders, dealers, onStockUpdate, onStatusUpda
 
                 {order.status === 'Pending' && (
                    <button onClick={() => onStatusUpdate(order._id, 'Dispatched')} className="w-full bg-cyan-600 hover:bg-cyan-500 text-white py-3 rounded-xl font-bold text-sm transition-colors">
-                     Accept & Dispatch
+                      Accept & Dispatch
                    </button>
                 )}
                 {order.status === 'Dispatched' && (
@@ -474,7 +477,7 @@ const AdminView = memo(({ products, orders, dealers, onStockUpdate, onStatusUpda
            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
               <h2 className="text-xl font-bold">Inventory Control</h2>
               {products.map((p, i) => (
-                 <motion.div initial={{ x: 10, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: i * 0.05 }} key={p._id || p.id} className="bg-slate-900 p-6 rounded-2xl border border-white/5 flex flex-col gap-4">
+                 <motion.div initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: i * 0.1 }} key={p._id || p.id} className="bg-slate-900 p-6 rounded-2xl border border-white/5 flex flex-col gap-4">
                     <div className="flex items-center gap-4">
                        <img src={p.img} className="w-16 h-16 object-contain" alt="" />
                        <div>
@@ -507,7 +510,7 @@ const AdminView = memo(({ products, orders, dealers, onStockUpdate, onStatusUpda
                  <BookOpen className="text-cyan-500"/> Khata Book (Udhaar)
               </h2>
               {safeDealers.map((d, i) => (
-                 <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: i * 0.05 }} key={d._id || d.id} className="bg-slate-900 p-5 rounded-2xl border border-white/5 relative">
+                 <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: i * 0.1 }} key={d._id || d.id} className="bg-slate-900 p-5 rounded-2xl border border-white/5 relative">
                     <div className="flex justify-between items-start mb-4">
                        <div>
                           <div className="font-bold text-lg">{d.name}</div>
@@ -526,7 +529,7 @@ const AdminView = memo(({ products, orders, dealers, onStockUpdate, onStatusUpda
                     <div className="flex items-center justify-between bg-black/20 p-3 rounded-xl">
                        <div className="text-xs text-slate-400">Last: <span className="text-white">{d.lastPaymentAmount ? `₹${d.lastPaymentAmount}` : 'N/A'}</span></div>
                        <button 
-                          onClick={() => handleDealerPay(d._id)}
+                          onClick={() => handleDealerPay(d._id, d.balance)}
                           className="bg-green-600/20 text-green-400 border border-green-600/50 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-green-600 hover:text-white transition-all flex items-center gap-2"
                        >
                           <Wallet size={12}/> Record Pay
@@ -547,11 +550,11 @@ const AdminView = memo(({ products, orders, dealers, onStockUpdate, onStatusUpda
       </div>
     </div>
   );
-});
+};
 
 // --- REUSABLE SECTIONS ---
 
-const HeroSection = memo(({ openPartnerModal }) => (
+const HeroSection = ({ openPartnerModal }) => (
     <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-4 pt-20 z-10">
       <div className="relative z-10 flex flex-col items-center w-full max-w-5xl mt-[20vh]">
         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 1 }} className="flex items-center justify-center gap-2 mb-4 md:mb-8">
@@ -561,7 +564,7 @@ const HeroSection = memo(({ openPartnerModal }) => (
         </motion.div>
         <div className="mt-8 relative w-full z-0"><ShimmerHeadline /></div>
         <Reveal direction="up" delay={0.2}>
-          <p className="mt-12 text-slate-400 text-sm md:text-lg max-w-xs md:max-w-md mx-auto font-light leading-relaxed relative z-20 backdrop-blur-sm bg-slate-950/40 p-4 rounded-xl">
+          <p className="mt-12 text-slate-400 text-sm md:text-lg max-w-xs md:max-w-md mx-auto font-light leading-relaxed relative z-20 backdrop-blur-sm bg-slate-950/30 p-4 rounded-xl">
             Direct from Mokampura Factory. <span className="block mt-2 text-cyan-400 font-medium">Book Full Truck Loads (FTL) or Wholesale Crates.</span>
           </p>
         </Reveal>
@@ -575,9 +578,9 @@ const HeroSection = memo(({ openPartnerModal }) => (
         <ChevronDown size={16} />
       </motion.div>
     </section>
-));
+);
 
-const StatItem = memo(({ label, value, icon: Icon, index }) => (
+const StatItem = ({ label, value, icon: Icon, index }) => (
   <Reveal direction="up" delay={index * 0.1}>
     <div className="flex flex-col items-center text-center">
       <div className="w-12 h-12 rounded-full bg-cyan-500/10 flex items-center justify-center mb-4 text-cyan-400">
@@ -587,9 +590,9 @@ const StatItem = memo(({ label, value, icon: Icon, index }) => (
       <div className="text-xs text-slate-500 uppercase tracking-widest">{label}</div>
     </div>
   </Reveal>
-));
+);
 
-const FeatureTile = memo(({ icon: Icon, title, desc, delay }) => (
+const FeatureTile = ({ icon: Icon, title, desc, delay }) => (
   <Reveal direction="up" delay={delay}>
     <div className="p-8 rounded-3xl bg-white/[0.02] border border-white/5 backdrop-blur-sm hover:bg-white/[0.05] transition-colors hover:border-cyan-500/30 group">
       <Icon className="text-cyan-400 mb-4 group-hover:scale-110 transition-transform duration-300" size={32} />
@@ -597,7 +600,7 @@ const FeatureTile = memo(({ icon: Icon, title, desc, delay }) => (
       <p className="text-sm text-slate-400">{desc}</p>
     </div>
   </Reveal>
-));
+);
 
 const SplashLoader = () => (
     <div className="fixed inset-0 bg-slate-950 z-[100] flex items-center justify-center">
@@ -614,23 +617,23 @@ const SplashLoader = () => (
     </div>
 );
 
-const SocialIcon = memo(({ Icon }) => (
+const SocialIcon = ({ Icon }) => (
    <a href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-slate-400 hover:bg-cyan-500 hover:text-white transition-all duration-300">
       <Icon size={18} />
    </a>
-));
+);
 
 const CartDrawer = ({ isOpen, onClose, cart, onCheckout }) => {
-  const items = useMemo(() => Object.values(cart), [cart]);
-  const totalCrates = useMemo(() => items.reduce((acc, item) => acc + item.quantity, 0), [items]);
-  const totalCost = useMemo(() => items.reduce((acc, item) => acc + (item.quantity * item.pricePerCrate), 0), [items]);
+  const items = Object.values(cart);
+  const totalCrates = items.reduce((acc, item) => acc + item.quantity, 0);
+  const totalCost = items.reduce((acc, item) => acc + (item.quantity * item.pricePerCrate), 0);
 
   return (
     <AnimatePresence>
       {isOpen && (
         <>
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60]" />
-          <motion.div initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ type: "spring", damping: 30, stiffness: 300 }} className="fixed right-0 top-0 h-full w-full max-w-sm bg-slate-900 border-l border-white/10 z-[70] p-8 shadow-2xl flex flex-col transform-gpu">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60]" />
+          <motion.div initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ type: "spring", damping: 25 }} className="fixed right-0 top-0 h-full w-full max-w-sm bg-slate-900 border-l border-white/10 z-[70] p-8 shadow-2xl flex flex-col">
             <div className="flex justify-between items-center mb-8 border-b border-white/10 pb-4">
               <div><h2 className="text-2xl font-bold text-white">Stock List</h2><p className="text-xs text-slate-500">Review your bulk inquiry</p></div>
               <button onClick={onClose}><X className="text-slate-400 hover:text-white" /></button>
@@ -666,7 +669,7 @@ const CartDrawer = ({ isOpen, onClose, cart, onCheckout }) => {
 const FullScreenMenu = ({ isOpen, onClose, openPartner }) => (
   <AnimatePresence>
     {isOpen && (
-      <motion.div initial={{ y: "-100%" }} animate={{ y: 0 }} exit={{ y: "-100%" }} transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }} className="fixed inset-0 bg-cyan-600 z-[80] flex flex-col p-8 md:p-20 transform-gpu">
+      <motion.div initial={{ y: "-100%" }} animate={{ y: 0 }} exit={{ y: "-100%" }} transition={{ duration: 0.5 }} className="fixed inset-0 bg-cyan-600 z-[80] flex flex-col p-8 md:p-20">
         <div className="flex justify-between items-center text-slate-900 mb-20">
           <div className="font-black text-2xl tracking-tighter">जलsa.</div>
           <button onClick={onClose} className="p-2 bg-slate-900 rounded-full text-white"><X size={24}/></button>
@@ -687,8 +690,8 @@ const PartnerModal = ({ isOpen, onClose }) => (
   <AnimatePresence>
     {isOpen && (
       <>
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/80 backdrop-blur-md z-[90]" />
-        <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} transition={{ type: "spring", duration: 0.5 }} className="fixed inset-0 m-auto w-full max-w-lg h-fit max-h-[90vh] bg-slate-900 border border-white/10 rounded-3xl z-[95] overflow-hidden flex flex-col shadow-2xl transform-gpu">
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/90 backdrop-blur-md z-[90]" />
+        <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="fixed inset-0 m-auto w-full max-w-lg h-fit max-h-[90vh] bg-slate-900 border border-white/10 rounded-3xl z-[95] overflow-hidden flex flex-col shadow-2xl">
           <div className="p-8 bg-gradient-to-br from-cyan-600 to-blue-700 relative overflow-hidden">
              <div className="relative z-10 text-white"><h3 className="text-3xl font-bold mb-2">Dealer Application</h3><p className="text-blue-100 text-sm">Join the distribution network of Mokampura's finest water.</p></div>
              <Droplets className="absolute -bottom-4 -right-4 text-white/20 w-32 h-32" />
@@ -733,8 +736,8 @@ const LoginModal = ({ isOpen, onClose, onLogin }) => {
         <AnimatePresence>
             {isOpen && (
                 <>
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/80 backdrop-blur-md z-[90]" />
-                    <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }} className="fixed inset-0 m-auto w-full max-w-sm h-fit bg-slate-900 border border-white/10 rounded-2xl z-[95] overflow-hidden flex flex-col shadow-2xl p-6 transform-gpu">
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/90 backdrop-blur-md z-[90]" />
+                    <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="fixed inset-0 m-auto w-full max-w-sm h-fit bg-slate-900 border border-white/10 rounded-2xl z-[95] overflow-hidden flex flex-col shadow-2xl p-6">
                         <div className="flex justify-between items-center mb-6">
                              <h3 className="text-xl font-bold text-white flex items-center gap-2"><Lock size={18} className="text-cyan-500"/> Staff Login</h3>
                              <button onClick={onClose}><X size={20} className="text-slate-400 hover:text-white"/></button>
@@ -775,47 +778,64 @@ export default function App() {
     try {
         const res = await fetch(`${API_URL}/api/products`);
         const data = await res.json();
+        // Only overwrite if database has data
         if (data && data.length > 0) {
             setProducts(data);
         }
     } catch (err) { console.error("API Error - Using Local Data", err); }
   };
 
-  const fetchAdminData = useCallback(async () => {
+  const fetchAdminData = async () => {
       if(!token) return;
       try {
           const ordersRes = await fetch(`${API_URL}/api/orders`, { headers: { 'x-auth-token': token } });
           const ordersData = await ordersRes.json();
+          
+          // ✅ FIX: Only set state if data is actually an array
           if (Array.isArray(ordersData)) {
             setOrders(ordersData);
+          } else {
+            console.error("Orders API returned non-array:", ordersData);
+            setOrders([]); // Fallback to empty array
           }
 
           const dealersRes = await fetch(`${API_URL}/api/dealers`, { headers: { 'x-auth-token': token } });
           const dealersData = await dealersRes.json();
+          
+          // ✅ FIX: Same safety check for dealers
           if (Array.isArray(dealersData)) {
             setDealers(dealersData);
+          } else {
+             setDealers([]);
           }
 
       } catch (err) { console.error("Admin Fetch Error", err); }
-  }, [token]);
+  };
 
   // --- INITIALIZATION & SOCKETS ---
   useEffect(() => {
+    // 1. Initial Load
     fetchProducts();
     if (token) {
         setViewMode('admin');
         fetchAdminData();
     }
 
+    // 2. Socket Connection
     const newSocket = io(API_URL);
 
+    // 3. Socket Listeners
     newSocket.on('connect', () => console.log('🟢 Socket Connected'));
     
+    // Listen for Stock Updates (Updates Inventory for everyone)
     newSocket.on('stock_updated', (updatedProduct) => {
         setProducts(prev => {
+             // Handle Deleted Product
              if(updatedProduct.deleted) {
                  return prev.filter(p => p._id !== updatedProduct._id);
              }
+             
+             // Handle Update or New
              const exists = prev.find(p => p._id === updatedProduct._id || p.id === updatedProduct._id);
              if (exists) {
                  return prev.map(p => (p._id === updatedProduct._id || p.id === updatedProduct._id ? updatedProduct : p));
@@ -824,14 +844,18 @@ export default function App() {
         });
     });
 
+    // Listen for New Orders (Updates Admin Panel)
     newSocket.on('new_order', (newOrder) => {
         setOrders(prev => [newOrder, ...prev]);
+        // Optional: Audio notification logic here
     });
 
+    // Listen for Order Status Changes
     newSocket.on('order_status_updated', (updatedOrder) => {
         setOrders(prev => prev.map(o => (o._id === updatedOrder._id ? updatedOrder : o)));
     });
 
+    // Listen for Dealer Updates
     newSocket.on('dealer_updated', (updatedDealer) => {
         setDealers(prev => {
              const exists = prev.find(d => d._id === updatedDealer._id);
@@ -843,11 +867,11 @@ export default function App() {
     setTimeout(() => setLoading(false), 2000);
 
     return () => newSocket.disconnect();
-  }, [token, fetchAdminData]);
+  }, [token]);
 
   // --- HANDLERS ---
 
-  const handleLogin = useCallback(async (email, password) => {
+  const handleLogin = async (email, password) => {
       const res = await fetch(`${API_URL}/api/auth/login`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -858,22 +882,22 @@ export default function App() {
           localStorage.setItem('adminToken', data.token);
           setToken(data.token);
           setViewMode('admin');
-          // Fetch will trigger via useEffect when token changes
+          // Fetch admin data immediately after login
+          fetchAdminData();
       } else {
           throw new Error(data.msg);
       }
-  }, []);
+  };
 
-  const handleLogout = useCallback(() => {
+  const handleLogout = () => {
       localStorage.removeItem('adminToken');
       setToken(null);
       setViewMode('customer');
       setOrders([]);
       setDealers([]);
-  }, []);
+  };
 
-  // UseCallback prevents ProductCard from re-rendering if this function instance changes
-  const handleUpdateCart = useCallback((product, newQty) => {
+  const handleUpdateCart = (product, newQty) => {
     if (newQty > product.stock) {
       alert(`Sorry, only ${product.stock} crates available.`);
       return;
@@ -886,17 +910,19 @@ export default function App() {
       return newCart;
     });
     if (navigator.vibrate) navigator.vibrate(20);
-  }, []);
+  };
 
   const getCartCount = () => Object.keys(cart).length;
+  const getCartTotalCrates = () => Object.values(cart).reduce((acc, item) => acc + item.quantity, 0);
 
-  const handleWhatsAppCheckout = useCallback(async () => {
+  const handleWhatsAppCheckout = async () => {
     const items = Object.values(cart);
     if (items.length === 0) return;
 
     const totalEstimate = items.reduce((acc, item) => acc + (item.quantity * item.pricePerCrate), 0);
     const orderItems = items.map(i => ({ productId: i._id || i.id, size: i.size, quantity: i.quantity, priceAtPurchase: i.pricePerCrate }));
 
+    // 1. Create Order in DB
     try {
         const orderData = {
             orderId: `#ORD-${Math.floor(Math.random() * 100000)}`,
@@ -912,6 +938,7 @@ export default function App() {
         });
 
         if(res.ok) {
+            // 2. WhatsApp Redirect
             let message = `*Wholesale Inquiry - जलsa Water*\n\nI have placed an order via website:\n`;
             items.forEach(item => {
                 message += `🔹 ${item.size} x ${item.quantity} Crates\n`;
@@ -920,16 +947,17 @@ export default function App() {
             
             window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`, '_blank');
             
+            // Cleanup
             setCart({});
             setCartOpen(false);
         }
     } catch (err) {
         alert("Failed to place order. Try again.");
     }
-  }, [cart]);
+  };
 
   // Admin Handlers
-  const handleStockUpdate = useCallback(async (id, newStock) => {
+  const handleStockUpdate = async (id, newStock) => {
       try {
           await fetch(`${API_URL}/api/products/${id}`, {
               method: 'PUT',
@@ -937,9 +965,9 @@ export default function App() {
               body: JSON.stringify({ stock: newStock })
           });
       } catch (err) { alert('Update failed'); }
-  }, [token]);
+  };
 
-  const handleOrderStatus = useCallback(async (id, status) => {
+  const handleOrderStatus = async (id, status) => {
       try {
           await fetch(`${API_URL}/api/orders/${id}`, {
               method: 'PUT',
@@ -947,20 +975,22 @@ export default function App() {
               body: JSON.stringify({ status })
           });
       } catch (err) { alert('Status update failed'); }
-  }, [token]);
+  };
 
-  const handleDealerTransaction = useCallback(async (id, amount, type) => {
+  const handleDealerTransaction = async (id, amount, type) => {
       try {
+          // type should be 'payment' or 'credit'
           await fetch(`${API_URL}/api/dealers/${id}/transaction`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json', 'x-auth-token': token },
               body: JSON.stringify({ amount: Number(amount), type })
           });
       } catch (err) { alert('Transaction failed'); }
-  }, [token]);
+  };
 
   if (loading) return <SplashLoader />;
 
+  // RENDER: Admin View
   if (viewMode === 'admin' && token) {
     return (
       <AdminView 
@@ -975,6 +1005,7 @@ export default function App() {
     );
   }
 
+  // RENDER: Customer View
   return (
     <div className="bg-slate-950 min-h-screen text-slate-200 font-sans overflow-x-hidden selection:bg-cyan-500/30">
       <GrainOverlay />
@@ -991,7 +1022,7 @@ export default function App() {
           <button onClick={() => setPartnerOpen(true)} className="hover:text-cyan-400 transition-colors">Distributorship</button>
         </div>
         <button onClick={() => setCartOpen(true)} className="flex gap-2 items-center hover:text-cyan-400 transition-colors font-bold uppercase text-sm">
-          <Package size={18} /> Bulk List ({getCartCount()})
+          <Package size={18} /> Bulk List ({getCartTotalCrates()})
         </button>
       </nav>
 
@@ -999,9 +1030,9 @@ export default function App() {
       <main className="relative pb-0">
         <HeroSection openPartnerModal={() => setPartnerOpen(true)} />
 
-        <div className="bg-cyan-500 text-slate-950 py-4 overflow-hidden whitespace-nowrap relative z-20 rotate-[-2deg] scale-110 shadow-2xl origin-left my-20 border-y-4 border-slate-950 transform-gpu">
-          <motion.div animate={{ x: ["0%", "-50%"] }} transition={{ repeat: Infinity, duration: 15, ease: "linear" }} className="flex gap-12 font-black text-4xl md:text-6xl uppercase tracking-tighter items-center will-change-transform">
-            {[1,2,3,4,5,6,7,8].map(i => (
+        <div className="bg-cyan-500 text-slate-950 py-4 overflow-hidden whitespace-nowrap relative z-20 rotate-[-2deg] scale-110 shadow-2xl origin-left my-20 border-y-4 border-slate-950">
+          <motion.div animate={{ x: ["0%", "-50%"] }} transition={{ repeat: Infinity, duration: 5, ease: "linear" }} className="flex gap-12 font-black text-4xl md:text-6xl uppercase tracking-tighter items-center transform-gpu">
+            {[1,2,3,4,5,6].map(i => (
               <span key={i} className="flex items-center gap-4">Wholesale Supply <Zap fill="currentColor" size={32}/> Bulk Orders <Truck fill="currentColor" size={32}/></span>
             ))}
           </motion.div>
@@ -1066,6 +1097,7 @@ export default function App() {
                   <div className="flex gap-4 mb-8">
                      <SocialIcon Icon={Instagram} /> <SocialIcon Icon={Facebook} /> <SocialIcon Icon={Linkedin} />
                   </div>
+                  {/* ADMIN LOGIN */}
                   <div>
                       <button onClick={() => token ? setViewMode('admin') : setLoginOpen(true)} className="text-[10px] uppercase tracking-widest text-slate-700 hover:text-cyan-500 transition-colors flex items-center gap-2 border border-slate-800 px-3 py-1 rounded-full">
                          <Settings size={10} /> Staff Login
@@ -1073,30 +1105,33 @@ export default function App() {
                   </div>
                </div>
                
+               {/* Quick Links */}
                <div>
                   <h4 className="text-white font-bold uppercase tracking-widest text-xs mb-6">Quick Links</h4>
                   <ul className="space-y-4 text-slate-400 text-sm">
-                      <li className="hover:text-cyan-400 cursor-pointer transition-colors">Product Catalog</li>
-                      <li className="hover:text-cyan-400 cursor-pointer transition-colors" onClick={() => setPartnerOpen(true)}>Partner Program</li>
-                      <li className="hover:text-cyan-400 cursor-pointer transition-colors">Quality Reports</li>
-                      <li className="hover:text-cyan-400 cursor-pointer transition-colors">Contact Support</li>
+                     <li className="hover:text-cyan-400 cursor-pointer transition-colors">Product Catalog</li>
+                     <li className="hover:text-cyan-400 cursor-pointer transition-colors" onClick={() => setPartnerOpen(true)}>Partner Program</li>
+                     <li className="hover:text-cyan-400 cursor-pointer transition-colors">Quality Reports</li>
+                     <li className="hover:text-cyan-400 cursor-pointer transition-colors">Contact Support</li>
                   </ul>
                </div>
                
+               {/* Contact */}
                <div>
                   <h4 className="text-white font-bold uppercase tracking-widest text-xs mb-6">Factory Contact</h4>
                   <ul className="space-y-4 text-slate-400 text-sm">
-                      <li className="flex items-start gap-3"><MapPin size={16} className="text-cyan-500 mt-1 shrink-0" /><span>Plot No. 45, Industrial Area, Mokampura</span></li>
-                      <li className="flex items-center gap-3"><Phone size={16} className="text-cyan-500 shrink-0" /><span>+91 9867165845</span></li>
-                      <li className="flex items-center gap-3"><Mail size={16} className="text-cyan-500 shrink-0" /><span>sales@jalsawater.com</span></li>
+                     <li className="flex items-start gap-3"><MapPin size={16} className="text-cyan-500 mt-1 shrink-0" /><span>Plot No. 45, Industrial Area, Mokampura</span></li>
+                     <li className="flex items-center gap-3"><Phone size={16} className="text-cyan-500 shrink-0" /><span>+91 9867165845</span></li>
+                     <li className="flex items-center gap-3"><Mail size={16} className="text-cyan-500 shrink-0" /><span>sales@jalsawater.com</span></li>
                   </ul>
                </div>
 
+               {/* Newsletter */}
                <div>
                   <h4 className="text-white font-bold uppercase tracking-widest text-xs mb-6">Distributor Updates</h4>
                   <div className="bg-white/5 p-1 rounded-lg border border-white/10 flex">
-                      <input type="email" placeholder="Your email" className="bg-transparent text-white px-4 py-2 w-full text-sm outline-none" />
-                      <button className="bg-cyan-600 text-white p-2 rounded-md hover:bg-cyan-500 transition-colors"><ArrowRight size={16} /></button>
+                     <input type="email" placeholder="Your email" className="bg-transparent text-white px-4 py-2 w-full text-sm outline-none" />
+                     <button className="bg-cyan-600 text-white p-2 rounded-md hover:bg-cyan-500 transition-colors"><ArrowRight size={16} /></button>
                   </div>
                   <p className="text-xs text-slate-600 mt-4">Subscribe for price updates and seasonal offers.</p>
                </div>
