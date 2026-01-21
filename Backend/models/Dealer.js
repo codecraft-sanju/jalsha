@@ -3,7 +3,11 @@ const mongoose = require('mongoose');
 const dealerSchema = new mongoose.Schema({
   name: {
     type: String,
-    required: true,
+    required: true, // Owner Name
+  },
+  shopName: {
+    type: String, 
+    required: true, // Agency/Shop Name (Added this)
   },
   location: {
     type: String,
@@ -12,10 +16,11 @@ const dealerSchema = new mongoose.Schema({
   mobile: {
     type: String,
     required: true,
+    unique: true, // Mobile number unique hona chahiye duplicate entry rokne ke liye
   },
   balance: {
     type: Number,
-    default: 0, // Negative means dealer owes you money
+    default: 0, // Negative (-) means dealer has to pay you (Udhaar)
   },
   lastPaymentDate: {
     type: Date,

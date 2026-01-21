@@ -19,18 +19,21 @@ import {
 import { io } from 'socket.io-client';
 
 // --- CONFIGURATION & ASSETS ---
-const API_URL = "http://localhost:5000"; 
+// ✅ CHANGE: Ab yeh values .env file se aayengi
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER || "919867165845";
+
+const NOISE_BG = "url('https://grainy-gradients.vercel.app/noise.svg')";
+
+// ✅ YOUR LOCAL IMAGES (Make sure these exist in /public folder)
 const IMG_200ML = "./200litre.png"; 
 const IMG_1L = "./1litre.png";
 const IMG_20L = "./20litre.png";
 
-const WHATSAPP_NUMBER = "919800000000"; 
-const NOISE_BG = "url('https://grainy-gradients.vercel.app/noise.svg')";
-
-// --- 1. RESTORED INITIAL DATA (Fallback for Empty DB) ---
+// --- 1. INITIAL DATA (Fallback for Empty DB) ---
 const INITIAL_PRODUCTS = [
   { 
-    _id: "p1", // Using _id to match MongoDB format
+    _id: "p1", 
     id: "p1",
     size: "200ml", 
     img: IMG_200ML, 
@@ -229,7 +232,6 @@ const ParallaxBottle = () => {
 
 const ProductCard = ({ p, onUpdateCart, cartItem, index }) => {
   const quantity = cartItem ? cartItem.quantity : 0;
-  const productId = p._id || p.id; // Handle both MongoDB _id and local id
   
   const x = useMotionValue(0);
   const y = useMotionValue(0);
@@ -279,7 +281,7 @@ const ProductCard = ({ p, onUpdateCart, cartItem, index }) => {
            )}
            {isOutOfStock && (
               <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-red-500/90 backdrop-blur text-white text-lg font-bold px-6 py-2 rounded-full uppercase tracking-widest z-30 border-2 border-red-400 rotate-[-10deg] shadow-xl">
-               Sold Out
+                Sold Out
               </span>
            )}
            <div className="absolute bottom-4 left-6 bg-black/40 backdrop-blur-md px-3 py-1 rounded-lg border border-white/10 text-[10px] text-white/70 uppercase tracking-widest">
@@ -351,8 +353,12 @@ const NavButton = ({ icon: Icon, label, active, onClick, count }) => (
 const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, onDealerUpdate, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
   
-  const totalRevenue = orders.reduce((acc, o) => acc + (o.totalAmount || 0), 0);
-  const pendingCount = orders.filter(o => o.status === 'Pending').length;
+  // ✅ FIX: Ensure orders/dealers are always arrays (Prevents .reduce() error)
+  const safeOrders = Array.isArray(orders) ? orders : [];
+  const safeDealers = Array.isArray(dealers) ? dealers : [];
+
+  const totalRevenue = safeOrders.reduce((acc, o) => acc + (o.totalAmount || 0), 0);
+  const pendingCount = safeOrders.filter(o => o.status === 'Pending').length;
 
   const handleDealerPay = (id, currentBalance) => {
     const amount = prompt("Enter payment amount received (₹):");
@@ -421,8 +427,8 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
         {activeTab === 'orders' && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
             <h2 className="text-xl font-bold">Orders Management</h2>
-            {orders.length === 0 && <div className="text-slate-500 text-center py-10">No orders yet.</div>}
-            {orders.map((order, i) => (
+            {safeOrders.length === 0 && <div className="text-slate-500 text-center py-10">No orders yet.</div>}
+            {safeOrders.map((order, i) => (
               <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: i * 0.1 }} key={order._id || order.id} className="bg-slate-900 p-5 rounded-2xl border border-white/5 shadow-lg relative overflow-hidden">
                 <div className={`absolute top-0 right-0 px-3 py-1 text-[10px] font-bold uppercase rounded-bl-xl ${
                    order.status === 'Pending' ? 'bg-orange-500/20 text-orange-400' :
@@ -441,9 +447,9 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                 
                 <div className="bg-white/5 p-3 rounded-lg mb-4 text-sm text-slate-300 space-y-1">
                   {order.items.map((item, idx) => (
-                     <div key={idx} className="flex justify-between">
-                         <span>{item.quantity}x {item.size}</span>
-                     </div>
+                      <div key={idx} className="flex justify-between">
+                          <span>{item.quantity}x {item.size}</span>
+                      </div>
                   ))}
                   <div className="border-t border-white/10 pt-2 mt-2 flex justify-between font-bold text-white">
                       <span>Total</span>
@@ -503,7 +509,7 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
               <h2 className="text-xl font-bold flex items-center gap-2">
                  <BookOpen className="text-cyan-500"/> Khata Book (Udhaar)
               </h2>
-              {dealers.map((d, i) => (
+              {safeDealers.map((d, i) => (
                  <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: i * 0.1 }} key={d._id || d.id} className="bg-slate-900 p-5 rounded-2xl border border-white/5 relative">
                     <div className="flex justify-between items-start mb-4">
                        <div>
@@ -757,7 +763,7 @@ export default function App() {
   const [loginOpen, setLoginOpen] = useState(false);
   const [token, setToken] = useState(localStorage.getItem('adminToken') || null);
 
-  // DYNAMIC DATA STATES - Initialized with default data
+  // DYNAMIC DATA STATES
   const [products, setProducts] = useState(INITIAL_PRODUCTS);
   const [orders, setOrders] = useState([]);
   const [dealers, setDealers] = useState([]);
@@ -772,7 +778,7 @@ export default function App() {
     try {
         const res = await fetch(`${API_URL}/api/products`);
         const data = await res.json();
-        // Only overwrite if database has data, otherwise keep INITIAL_PRODUCTS
+        // Only overwrite if database has data
         if (data && data.length > 0) {
             setProducts(data);
         }
@@ -783,10 +789,26 @@ export default function App() {
       if(!token) return;
       try {
           const ordersRes = await fetch(`${API_URL}/api/orders`, { headers: { 'x-auth-token': token } });
-          setOrders(await ordersRes.json());
+          const ordersData = await ordersRes.json();
+          
+          // ✅ FIX: Only set state if data is actually an array
+          if (Array.isArray(ordersData)) {
+            setOrders(ordersData);
+          } else {
+            console.error("Orders API returned non-array:", ordersData);
+            setOrders([]); // Fallback to empty array
+          }
 
           const dealersRes = await fetch(`${API_URL}/api/dealers`, { headers: { 'x-auth-token': token } });
-          setDealers(await dealersRes.json());
+          const dealersData = await dealersRes.json();
+          
+          // ✅ FIX: Same safety check for dealers
+          if (Array.isArray(dealersData)) {
+            setDealers(dealersData);
+          } else {
+             setDealers([]);
+          }
+
       } catch (err) { console.error("Admin Fetch Error", err); }
   };
 
@@ -794,7 +816,10 @@ export default function App() {
   useEffect(() => {
     // 1. Initial Load
     fetchProducts();
-    if (token) fetchAdminData();
+    if (token) {
+        setViewMode('admin');
+        fetchAdminData();
+    }
 
     // 2. Socket Connection
     const newSocket = io(API_URL);
@@ -805,12 +830,16 @@ export default function App() {
     // Listen for Stock Updates (Updates Inventory for everyone)
     newSocket.on('stock_updated', (updatedProduct) => {
         setProducts(prev => {
-             // Handle Update
+             // Handle Deleted Product
+             if(updatedProduct.deleted) {
+                 return prev.filter(p => p._id !== updatedProduct._id);
+             }
+             
+             // Handle Update or New
              const exists = prev.find(p => p._id === updatedProduct._id || p.id === updatedProduct._id);
              if (exists) {
                  return prev.map(p => (p._id === updatedProduct._id || p.id === updatedProduct._id ? updatedProduct : p));
              }
-             // Handle New Product
              return [...prev, updatedProduct];
         });
     });
@@ -818,8 +847,7 @@ export default function App() {
     // Listen for New Orders (Updates Admin Panel)
     newSocket.on('new_order', (newOrder) => {
         setOrders(prev => [newOrder, ...prev]);
-        // Play notification sound if Admin
-        if (viewMode === 'admin') new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3').play().catch(()=>{});
+        // Optional: Audio notification logic here
     });
 
     // Listen for Order Status Changes
@@ -839,7 +867,7 @@ export default function App() {
     setTimeout(() => setLoading(false), 2000);
 
     return () => newSocket.disconnect();
-  }, [token, viewMode]);
+  }, [token]);
 
   // --- HANDLERS ---
 
@@ -854,6 +882,8 @@ export default function App() {
           localStorage.setItem('adminToken', data.token);
           setToken(data.token);
           setViewMode('admin');
+          // Fetch admin data immediately after login
+          fetchAdminData();
       } else {
           throw new Error(data.msg);
       }
@@ -863,6 +893,8 @@ export default function App() {
       localStorage.removeItem('adminToken');
       setToken(null);
       setViewMode('customer');
+      setOrders([]);
+      setDealers([]);
   };
 
   const handleUpdateCart = (product, newQty) => {
@@ -894,7 +926,7 @@ export default function App() {
     try {
         const orderData = {
             orderId: `#ORD-${Math.floor(Math.random() * 100000)}`,
-            customerName: "Web Inquiry User", // In real app, ask for name
+            customerName: "Web Inquiry User", 
             items: orderItems,
             totalAmount: totalEstimate
         };
@@ -947,6 +979,7 @@ export default function App() {
 
   const handleDealerTransaction = async (id, amount, type) => {
       try {
+          // type should be 'payment' or 'credit'
           await fetch(`${API_URL}/api/dealers/${id}/transaction`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json', 'x-auth-token': token },
@@ -1066,9 +1099,9 @@ export default function App() {
                   </div>
                   {/* ADMIN LOGIN */}
                   <div>
-                     <button onClick={() => token ? setViewMode('admin') : setLoginOpen(true)} className="text-[10px] uppercase tracking-widest text-slate-700 hover:text-cyan-500 transition-colors flex items-center gap-2 border border-slate-800 px-3 py-1 rounded-full">
-                        <Settings size={10} /> Staff Login
-                     </button>
+                      <button onClick={() => token ? setViewMode('admin') : setLoginOpen(true)} className="text-[10px] uppercase tracking-widest text-slate-700 hover:text-cyan-500 transition-colors flex items-center gap-2 border border-slate-800 px-3 py-1 rounded-full">
+                         <Settings size={10} /> Staff Login
+                      </button>
                   </div>
                </div>
                
@@ -1088,7 +1121,7 @@ export default function App() {
                   <h4 className="text-white font-bold uppercase tracking-widest text-xs mb-6">Factory Contact</h4>
                   <ul className="space-y-4 text-slate-400 text-sm">
                      <li className="flex items-start gap-3"><MapPin size={16} className="text-cyan-500 mt-1 shrink-0" /><span>Plot No. 45, Industrial Area, Mokampura</span></li>
-                     <li className="flex items-center gap-3"><Phone size={16} className="text-cyan-500 shrink-0" /><span>+91 98000 00000</span></li>
+                     <li className="flex items-center gap-3"><Phone size={16} className="text-cyan-500 shrink-0" /><span>+91 9867165845</span></li>
                      <li className="flex items-center gap-3"><Mail size={16} className="text-cyan-500 shrink-0" /><span>sales@jalsawater.com</span></li>
                   </ul>
                </div>

@@ -1,6 +1,6 @@
 const Dealer = require('../models/Dealer');
 
-// @desc    Get all dealers (Sorted by debt/balance)
+// @desc    Get all dealers (Sorted by newest first)
 // @route   GET /api/dealers
 // @access  Private (Admin)
 const getDealers = async (req, res) => {
@@ -18,10 +18,17 @@ const getDealers = async (req, res) => {
 // @access  Private (Admin)
 const createDealer = async (req, res) => {
   try {
-    const { name, location, mobile, balance } = req.body;
+    // ✅ FIX: 'shopName' yahan add kiya hai (Model requirement)
+    const { name, shopName, location, mobile, balance } = req.body;
+
+    // Simple validation
+    if (!name || !shopName || !mobile) {
+      return res.status(400).json({ msg: 'Please fill all required fields (Name, Shop Name, Mobile)' });
+    }
 
     const dealer = new Dealer({
       name,
+      shopName, // ✅ Database mein save karne ke liye
       location,
       mobile,
       balance: balance || 0 
@@ -52,9 +59,13 @@ const updateDealerTransaction = async (req, res) => {
         return res.status(404).json({ msg: 'Dealer not found' });
     }
     
+    // Balance calculation
+    // Note: Agar udhaar le raha hai toh amount negative bhejna, payment kar raha hai toh positive
     dealer.balance = dealer.balance + Number(amount);
     
-    if(Number(amount) > 0) {
+    // Sirf tab record karo jab "Payment" aayi ho (type === 'payment')
+    // Ya jab amount positive ho (Logic ke hisaab se)
+    if(type === 'payment' || Number(amount) > 0) {
         dealer.lastPaymentDate = Date.now();
         dealer.lastPaymentAmount = Number(amount);
     }

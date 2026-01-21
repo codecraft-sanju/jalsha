@@ -5,6 +5,12 @@ const orderSchema = new mongoose.Schema({
     type: String,
     unique: true, // e.g., "#ORD-992"
   },
+  // Agar guest user hai toh naam, agar dealer hai toh ID link karenge
+  dealerId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Dealer',
+    default: null 
+  },
   customerName: {
     type: String,
     required: true,
@@ -13,8 +19,8 @@ const orderSchema = new mongoose.Schema({
     {
       productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
       size: String,
-      quantity: Number, // Number of crates
-      priceAtPurchase: Number // Price can change, so store historical price
+      quantity: Number, 
+      priceAtPurchase: Number 
     }
   ],
   totalAmount: {
