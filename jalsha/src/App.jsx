@@ -14,7 +14,8 @@ import {
   Facebook, Instagram, Linkedin, Truck, Layers, Calculator,
   Phone, Mail, MapPin, Award, Users, Clock,
   LayoutDashboard, Settings, LogOut, CheckCircle, AlertCircle,
-  BookOpen, Plus, Minus, Wallet, Lock, Loader2, Edit, Save, Trash2, Search
+  BookOpen, Plus, Minus, Wallet, Lock, Loader2, Edit, Save, Trash2, Search,
+  UploadCloud
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { Toaster, toast } from 'react-hot-toast';
@@ -24,6 +25,40 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER || "919867165845";
 
 const NOISE_BG = "url('https://grainy-gradients.vercel.app/noise.svg')";
+
+// --- DEFAULT DATA (AUTO-INITIALIZATION) ---
+const DEFAULT_PRODUCTS = [
+  {
+    id: 'def_1',
+    size: '1 Litre Bottle',
+    pricePerCrate: 140,
+    stock: 500,
+    crateSize: 12,
+    img: './1litre.png',
+    desc: 'Premium packaged drinking water. Perfect for retail and daily hydration.',
+    tag: 'Best Seller'
+  },
+  {
+    id: 'def_2',
+    size: '20 Litre Jar',
+    pricePerCrate: 40,
+    stock: 200,
+    crateSize: 1, // Usually sold per jar
+    img: './20litre.png',
+    desc: 'Heavy duty chilled jars. Ideal for corporate offices and households.',
+    tag: 'Bulk Only'
+  },
+  {
+    id: 'def_3',
+    size: '200ml Mini',
+    pricePerCrate: 120,
+    stock: 1000,
+    crateSize: 48,
+    img: './200litre.png', // Keeping your filename
+    desc: 'Pocket size pouches/bottles. The best choice for weddings and parties.',
+    tag: 'Event Special'
+  }
+];
 
 // --- VISUAL MICRO-COMPONENTS ---
 
@@ -89,12 +124,12 @@ const LuxuryButton = ({ children, primary = false, onClick, className = "", icon
   >
     <span className="relative z-10 flex items-center gap-2">
       {loading ? (
-         <>Processing <Spinner size={16} color={primary ? "text-slate-900" : "text-white"} /></>
+          <>Processing <Spinner size={16} color={primary ? "text-slate-900" : "text-white"} /></>
       ) : (
-         <>
-           {children}
-           {Icon && <Icon size={16} />}
-         </>
+          <>
+            {children}
+            {Icon && <Icon size={16} />}
+          </>
       )}
     </span>
     {primary && !disabled && !loading && (
@@ -456,6 +491,8 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
   const totalRevenue = safeOrders.reduce((acc, o) => acc + (o.totalAmount || 0), 0);
   const pendingCount = safeOrders.filter(o => o.status === 'Pending').length;
 
+  const isUsingDefaults = products.length > 0 && products[0].id && products[0].id.startsWith('def_');
+
   const handleEditClick = (product) => {
       setEditingProduct(product);
       setShowProductModal(true);
@@ -464,6 +501,20 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
   const handleAddClick = () => {
       setEditingProduct(null);
       setShowProductModal(true);
+  };
+
+  // NEW: Function to Sync Defaults to Real DB
+  const handleSyncDefaults = async () => {
+      if(window.confirm("Initialize Database with these 3 products?")) {
+          setLoadingAction('sync');
+          // Loop through defaults and save them as real products
+          for(const p of products) {
+              const { id, ...prodData } = p; // Remove ID to let DB generate one
+              await onSaveProduct(prodData);
+          }
+          setLoadingAction(null);
+          toast.success("Database Initialized Successfully!");
+      }
   };
 
   const handleStockClick = async (id, newStock) => {
@@ -544,6 +595,15 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                   </button>
               </div>
               
+              {isUsingDefaults && (
+                  <motion.div initial={{opacity:0}} animate={{opacity:1}} className="mb-4 bg-blue-500/10 border border-blue-500/30 p-4 rounded-xl flex items-center justify-between">
+                      <div className="text-xs text-blue-300">Running on default items.</div>
+                      <button onClick={handleSyncDefaults} className="text-xs bg-blue-600 text-white px-3 py-2 rounded-lg font-bold flex items-center gap-2">
+                          {loadingAction === 'sync' ? <Spinner size={12}/> : <><UploadCloud size={14}/> Sync Defaults to DB</>}
+                      </button>
+                  </motion.div>
+              )}
+
               <div className="space-y-3">
                 {products.length === 0 ? (
                     <div className="text-center py-10 bg-slate-900 rounded-xl border border-white/5 border-dashed">
@@ -612,7 +672,7 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                       loading={loadingAction === order._id}
                       variant="primary"
                    >
-                     Accept & Dispatch
+                      Accept & Dispatch
                    </AdminActionButton>
                 )}
                 {order.status === 'Dispatched' && (
@@ -639,6 +699,12 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                   </button>
               </div>
               
+              {isUsingDefaults && (
+                  <div className="text-center text-xs text-slate-500 mb-4 bg-white/5 p-2 rounded-lg">
+                      Preview Mode (Default Data). <br/>Sync to DB in Dashboard to enable full editing.
+                  </div>
+              )}
+
               {products.length === 0 && <div className="text-center text-slate-500 py-10">Inventory is empty. Add items.</div>}
 
               {products.map((p, i) => (
@@ -661,6 +727,7 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                           whileTap={{scale: 0.9}} 
                           onClick={() => handleStockClick(p._id, Math.max(0, p.stock - 10))} 
                           className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center text-white hover:bg-red-500/20 hover:text-red-400 transition-colors"
+                          disabled={isUsingDefaults}
                        >
                           {loadingAction === p._id ? <Spinner size={12} /> : <Minus size={16}/>}
                        </motion.button>
@@ -672,6 +739,7 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                           whileTap={{scale: 0.9}} 
                           onClick={() => handleStockClick(p._id, p.stock + 10)} 
                           className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center text-white hover:bg-green-500/20 hover:text-green-400 transition-colors"
+                          disabled={isUsingDefaults}
                        >
                           {loadingAction === p._id ? <Spinner size={12} /> : <Plus size={16}/>}
                        </motion.button>
@@ -972,11 +1040,10 @@ export default function App() {
   const [token, setToken] = useState(localStorage.getItem('adminToken') || null);
 
   // DYNAMIC DATA STATES
-  const [products, setProducts] = useState([]); // ✅ No Initial Products (Clean Start)
+  const [products, setProducts] = useState([]); 
   const [orders, setOrders] = useState([]);
   const [dealers, setDealers] = useState([]);
   
-  // ✅ UPDATED: Read from localStorage initially
   const [cart, setCart] = useState(() => {
      try {
        const saved = localStorage.getItem('jalsa_cart');
@@ -989,9 +1056,8 @@ export default function App() {
   const [cartOpen, setCartOpen] = useState(false);
   const [partnerOpen, setPartnerOpen] = useState(false);
 
-  // ✅ UPDATED: Save to localStorage whenever cart changes
   useEffect(() => {
-     localStorage.setItem('jalsa_cart', JSON.stringify(cart));
+      localStorage.setItem('jalsa_cart', JSON.stringify(cart));
   }, [cart]);
 
   // --- API CALLS ---
@@ -1001,10 +1067,14 @@ export default function App() {
         const data = await res.json();
         if (data && data.length > 0) {
             setProducts(data);
+        } else {
+            // ✅ AUTO INITIALIZE: Use Default 3 products if DB is empty
+            setProducts(DEFAULT_PRODUCTS);
         }
     } catch (err) { 
-        console.error("API Error - No Data", err); 
-        // We do NOT set fallback data here, so screen stays clean if API fails
+        console.error("API Error - Using Defaults", err); 
+        // ✅ FALLBACK: Use Default 3 products if API fails
+        setProducts(DEFAULT_PRODUCTS);
     }
   };
 
@@ -1214,7 +1284,6 @@ export default function App() {
       } catch (err) { toast.error('Transaction failed'); }
   };
 
-  // ✅ NEW: Handle Product Save (Create/Update)
   const handleSaveProduct = async (productData) => {
       try {
           const url = productData._id 
@@ -1231,7 +1300,6 @@ export default function App() {
 
           if (!res.ok) throw new Error('Failed to save');
           
-          // Optimistic Update handled by socket usually, but force fetch here for safety
           fetchProducts();
           toast.success(productData._id ? "Product Updated" : "Product Created");
       } catch (err) {
@@ -1239,7 +1307,6 @@ export default function App() {
       }
   };
 
-  // ✅ NEW: Handle Product Delete
   const handleDeleteProduct = async (id) => {
       try {
           await fetch(`${API_URL}/api/products/${id}`, {
@@ -1374,12 +1441,12 @@ export default function App() {
                   </div>
                   <p className="text-slate-500 text-sm mb-6 leading-relaxed">Pure hydration, bottled at source. Proudly serving Rajasthan.</p>
                   <div className="flex gap-4 mb-8">
-                     <SocialIcon Icon={Instagram} /> <SocialIcon Icon={Facebook} /> <SocialIcon Icon={Linkedin} />
+                      <SocialIcon Icon={Instagram} /> <SocialIcon Icon={Facebook} /> <SocialIcon Icon={Linkedin} />
                   </div>
                   {/* ADMIN LOGIN */}
                   <div>
                       <button onClick={() => token ? setViewMode('admin') : setLoginOpen(true)} className="text-[10px] uppercase tracking-widest text-slate-700 hover:text-cyan-500 transition-colors flex items-center gap-2 border border-slate-800 px-3 py-1 rounded-full">
-                         <Settings size={10} /> Staff Login
+                          <Settings size={10} /> Staff Login
                       </button>
                   </div>
                </div>
@@ -1388,10 +1455,10 @@ export default function App() {
                <div>
                   <h4 className="text-white font-bold uppercase tracking-widest text-xs mb-6">Quick Links</h4>
                   <ul className="space-y-4 text-slate-400 text-sm">
-                     <li className="hover:text-cyan-400 cursor-pointer transition-colors">Product Catalog</li>
-                     <li className="hover:text-cyan-400 cursor-pointer transition-colors" onClick={() => setPartnerOpen(true)}>Partner Program</li>
-                     <li className="hover:text-cyan-400 cursor-pointer transition-colors">Quality Reports</li>
-                     <li className="hover:text-cyan-400 cursor-pointer transition-colors">Contact Support</li>
+                      <li className="hover:text-cyan-400 cursor-pointer transition-colors">Product Catalog</li>
+                      <li className="hover:text-cyan-400 cursor-pointer transition-colors" onClick={() => setPartnerOpen(true)}>Partner Program</li>
+                      <li className="hover:text-cyan-400 cursor-pointer transition-colors">Quality Reports</li>
+                      <li className="hover:text-cyan-400 cursor-pointer transition-colors">Contact Support</li>
                   </ul>
                </div>
                
@@ -1399,9 +1466,9 @@ export default function App() {
                <div>
                   <h4 className="text-white font-bold uppercase tracking-widest text-xs mb-6">Factory Contact</h4>
                   <ul className="space-y-4 text-slate-400 text-sm">
-                     <li className="flex items-start gap-3"><MapPin size={16} className="text-cyan-500 mt-1 shrink-0" /><span>Plot No. 45, Industrial Area, Mokampura</span></li>
-                     <li className="flex items-center gap-3"><Phone size={16} className="text-cyan-500 shrink-0" /><span>+91 9867165845</span></li>
-                     <li className="flex items-center gap-3"><Mail size={16} className="text-cyan-500 shrink-0" /><span>sales@jalsawater.com</span></li>
+                      <li className="flex items-start gap-3"><MapPin size={16} className="text-cyan-500 mt-1 shrink-0" /><span>Plot No. 45, Industrial Area, Mokampura</span></li>
+                      <li className="flex items-center gap-3"><Phone size={16} className="text-cyan-500 shrink-0" /><span>+91 9867165845</span></li>
+                      <li className="flex items-center gap-3"><Mail size={16} className="text-cyan-500 shrink-0" /><span>sales@jalsawater.com</span></li>
                   </ul>
                </div>
 
@@ -1409,8 +1476,8 @@ export default function App() {
                <div>
                   <h4 className="text-white font-bold uppercase tracking-widest text-xs mb-6">Distributor Updates</h4>
                   <div className="bg-white/5 p-1 rounded-lg border border-white/10 flex">
-                     <input type="email" placeholder="Your email" className="bg-transparent text-white px-4 py-2 w-full text-sm outline-none" />
-                     <button className="bg-cyan-600 text-white p-2 rounded-md hover:bg-cyan-500 transition-colors"><ArrowRight size={16} /></button>
+                      <input type="email" placeholder="Your email" className="bg-transparent text-white px-4 py-2 w-full text-sm outline-none" />
+                      <button className="bg-cyan-600 text-white p-2 rounded-md hover:bg-cyan-500 transition-colors"><ArrowRight size={16} /></button>
                   </div>
                   <p className="text-xs text-slate-600 mt-4">Subscribe for price updates and seasonal offers.</p>
                </div>
