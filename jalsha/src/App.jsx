@@ -25,38 +25,37 @@ const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER || "919867165845";
 
 const NOISE_BG = "url('https://grainy-gradients.vercel.app/noise.svg')";
 
-// --- INITIALIZATION DATA (Fallback only) ---
-// Used only if "Initialize Inventory" is clicked. No fake dealers.
+// --- AUTO-FILL DATA (Used for "Initialize Inventory" Action) ---
 const DEFAULT_PRODUCTS = [
   {
-    id: 'def_1',
+    id: 'temp_1',
     size: '1 Litre Bottle',
     pricePerCrate: 140,
-    stock: 0,
+    stock: 100, // Initial Stock
     crateSize: 12,
     img: './1litre.png',
-    desc: 'Premium packaged drinking water.',
-    tag: 'Retail'
+    desc: 'Premium packaged drinking water. Standard retail bottle.',
+    tag: 'Best Seller'
   },
   {
-    id: 'def_2',
+    id: 'temp_2',
     size: '20 Litre Jar',
     pricePerCrate: 40,
-    stock: 0,
+    stock: 50, // Initial Stock
     crateSize: 1,
     img: './20litre.png',
-    desc: 'Standard chilled jars.',
-    tag: 'Commercial'
+    desc: 'Heavy duty chilled jars for corporate and home use.',
+    tag: 'Bulk Only'
   },
   {
-    id: 'def_3',
-    size: '200ml Pouch',
-    pricePerCrate: 100,
-    stock: 0,
-    crateSize: 50,
+    id: 'temp_3',
+    size: '200ml Mini',
+    pricePerCrate: 120,
+    stock: 200, // Initial Stock
+    crateSize: 48,
     img: './200litre.png',
-    desc: 'Event special pouches.',
-    tag: 'Events'
+    desc: 'Pocket size pouches/bottles. Ideal for weddings and events.',
+    tag: 'Event Special'
   }
 ];
 
@@ -513,8 +512,6 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
   const totalRevenue = safeOrders.reduce((acc, o) => acc + (o.totalAmount || 0), 0);
   const pendingCount = safeOrders.filter(o => o.status === 'Pending').length;
 
-  const isUsingDefaults = products.length > 0 && products[0].id && products[0].id.startsWith('def_');
-
   const handleEditClick = (product) => {
       setEditingProduct(product);
       setShowProductModal(true);
@@ -525,15 +522,17 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
       setShowProductModal(true);
   };
 
+  // --- AUTOMATED INVENTORY FILL ---
   const handleSyncDefaults = async () => {
-      if(window.confirm("Initialize Database with default products?")) {
+      if(window.confirm("Auto-fill inventory with 3 Standard Products (1L, 20L, 200ml)?")) {
           setLoadingAction('sync');
-          for(const p of products) {
-              const { id, ...prodData } = p; 
+          // Loop through the specific default data defined at the top
+          for(const p of DEFAULT_PRODUCTS) {
+              const { id, ...prodData } = p; // Remove 'temp_id' so DB creates real ID
               await onSaveProduct(prodData);
           }
           setLoadingAction(null);
-          toast.success("Database Initialized!");
+          toast.success("Inventory Auto-filled!");
       }
   };
 
@@ -620,7 +619,7 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                   </button>
               </div>
               
-              {isUsingDefaults && (
+              {products.length === 0 && (
                   <motion.div initial={{opacity:0}} animate={{opacity:1}} className="mb-4 bg-blue-500/10 border border-blue-500/30 p-4 rounded-xl flex items-center justify-between">
                       <div className="text-xs text-blue-300">Inventory Empty. Use Defaults?</div>
                       <button onClick={handleSyncDefaults} className="text-xs bg-blue-600 text-white px-3 py-2 rounded-lg font-bold flex items-center gap-2">
@@ -634,7 +633,7 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                     <div className="text-center py-10 bg-slate-900 rounded-xl border border-white/5 border-dashed">
                         <Package size={40} className="mx-auto text-slate-700 mb-2"/>
                         <p className="text-slate-500 text-sm">No products found.</p>
-                        <button onClick={handleAddClick} className="mt-4 bg-cyan-600 text-white px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider">Initialize Inventory</button>
+                        <p className="text-slate-400 text-xs mt-2">Click "Auto-Fill" above to load standard items.</p>
                     </div>
                 ) : (
                     products.map((p, i) => (
@@ -724,12 +723,6 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                   </button>
               </div>
               
-              {isUsingDefaults && (
-                  <div className="text-center text-xs text-slate-500 mb-4 bg-white/5 p-2 rounded-lg">
-                      Preview Mode. Add real products or sync defaults.
-                  </div>
-              )}
-
               {products.length === 0 && <div className="text-center text-slate-500 py-10">Inventory is empty. Add items.</div>}
 
               {products.map((p, i) => (
@@ -752,7 +745,6 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                           whileTap={{scale: 0.9}} 
                           onClick={() => handleStockClick(p._id, Math.max(0, p.stock - 10))} 
                           className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center text-white hover:bg-red-500/20 hover:text-red-400 transition-colors"
-                          disabled={isUsingDefaults}
                        >
                           {loadingAction === p._id ? <Spinner size={12} /> : <Minus size={16}/>}
                        </motion.button>
@@ -764,7 +756,6 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                           whileTap={{scale: 0.9}} 
                           onClick={() => handleStockClick(p._id, p.stock + 10)} 
                           className="w-10 h-10 bg-slate-800 rounded-lg flex items-center justify-center text-white hover:bg-green-500/20 hover:text-green-400 transition-colors"
-                          disabled={isUsingDefaults}
                        >
                           {loadingAction === p._id ? <Spinner size={12} /> : <Plus size={16}/>}
                        </motion.button>
