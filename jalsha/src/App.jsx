@@ -5,7 +5,6 @@ import {
   useScroll, 
   useTransform, 
   useSpring, 
-  useMotionValue
 } from 'framer-motion';
 import { 
   Droplets, X, Menu, 
@@ -15,7 +14,7 @@ import {
   Phone, Mail, MapPin, Award, Users, Clock,
   LayoutDashboard, Settings, LogOut, CheckCircle, AlertCircle,
   BookOpen, Plus, Minus, Wallet, Lock, Loader2, Edit, Save, Trash2, Search,
-  UploadCloud
+  UploadCloud, UserPlus, Power, BadgePercent
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { Toaster, toast } from 'react-hot-toast';
@@ -26,37 +25,38 @@ const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER || "919867165845";
 
 const NOISE_BG = "url('https://grainy-gradients.vercel.app/noise.svg')";
 
-// --- DEFAULT DATA (AUTO-INITIALIZATION) ---
+// --- INITIALIZATION DATA (Fallback only) ---
+// Used only if "Initialize Inventory" is clicked. No fake dealers.
 const DEFAULT_PRODUCTS = [
   {
     id: 'def_1',
     size: '1 Litre Bottle',
     pricePerCrate: 140,
-    stock: 500,
+    stock: 0,
     crateSize: 12,
     img: './1litre.png',
-    desc: 'Premium packaged drinking water. Perfect for retail and daily hydration.',
-    tag: 'Best Seller'
+    desc: 'Premium packaged drinking water.',
+    tag: 'Retail'
   },
   {
     id: 'def_2',
     size: '20 Litre Jar',
     pricePerCrate: 40,
-    stock: 200,
-    crateSize: 1, // Usually sold per jar
+    stock: 0,
+    crateSize: 1,
     img: './20litre.png',
-    desc: 'Heavy duty chilled jars. Ideal for corporate offices and households.',
-    tag: 'Bulk Only'
+    desc: 'Standard chilled jars.',
+    tag: 'Commercial'
   },
   {
     id: 'def_3',
-    size: '200ml Mini',
-    pricePerCrate: 120,
-    stock: 1000,
-    crateSize: 48,
-    img: './200litre.png', // Keeping your filename
-    desc: 'Pocket size pouches/bottles. The best choice for weddings and parties.',
-    tag: 'Event Special'
+    size: '200ml Pouch',
+    pricePerCrate: 100,
+    stock: 0,
+    crateSize: 50,
+    img: './200litre.png',
+    desc: 'Event special pouches.',
+    tag: 'Events'
   }
 ];
 
@@ -229,7 +229,6 @@ const ParallaxBottle = () => {
     <div className="fixed inset-0 pointer-events-none z-0 flex items-center justify-center overflow-hidden">
       <BlurPatch className="w-[80vw] h-[80vw] bg-cyan-500/20 md:opacity-10" />
       <motion.div style={{ y, rotate, scale, opacity }} className="relative h-[65vh] md:h-[95vh] w-auto aspect-[1/3] z-20">
-        {/* Placeholder image, will be behind actual content */}
         <img 
           src="./1litre.png" alt="Jalsa Premium" 
           className="w-full h-full object-contain drop-shadow-[0_40px_80px_rgba(0,0,0,0.7)]"
@@ -242,9 +241,6 @@ const ParallaxBottle = () => {
 
 const ProductCard = ({ p, onUpdateCart, cartItem, index }) => {
   const quantity = cartItem ? cartItem.quantity : 0;
-  
-  // NOTE: Removed 3D tilt logic (useMotionValue, rotateX, rotateY) so the card stays flat.
-  
   const isOutOfStock = p.stock <= 0;
   const isLowStock = p.stock < 50;
 
@@ -263,10 +259,9 @@ const ProductCard = ({ p, onUpdateCart, cartItem, index }) => {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ delay: index * 0.1, duration: 0.5 }}
-      className="snap-center shrink-0 w-[85vw] md:w-[400px]" // Removed perspective-1000
+      className="snap-center shrink-0 w-[85vw] md:w-[400px]"
     >
       <motion.div 
-        // Removed style={{ rotateX, rotateY... }} and onMouseMove handlers
         whileHover={{ scale: 1.02 }}
         className="relative h-[600px] rounded-[2rem] bg-slate-900 border border-white/10 overflow-hidden group transition-all duration-300 hover:shadow-[0_0_50px_-20px_rgba(6,182,212,0.3)] flex flex-col transform-gpu"
       >
@@ -278,7 +273,7 @@ const ProductCard = ({ p, onUpdateCart, cartItem, index }) => {
            <motion.img 
              src={p.img || p.imageUrl} alt={p.size} 
              className={`h-full w-auto object-contain drop-shadow-2xl z-10 ${isOutOfStock ? 'grayscale opacity-50' : ''}`}
-             whileHover={!isOutOfStock ? { scale: 1.1, z: 50 } : {}} // Removed rotate: 5
+             whileHover={!isOutOfStock ? { scale: 1.1, z: 50 } : {}}
              onError={(e) => {e.target.src = "https://placehold.co/200x400/000/FFF?text=Bottle"}}
            />
            {p.tag && !isOutOfStock && (
@@ -344,7 +339,7 @@ const ProductCard = ({ p, onUpdateCart, cartItem, index }) => {
 
 // --- ADMIN PANEL COMPONENTS ---
 
-// Product Edit/Add Modal (The "Orvella" style adapted for Jalsa)
+// Product Edit/Add Modal
 const ProductModal = ({ isOpen, onClose, product, onSave }) => {
     const [formData, setFormData] = useState({
         size: '',
@@ -361,7 +356,7 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
         if (product) {
             setFormData(product);
         } else {
-            setFormData({ size: '', pricePerCrate: '', stock: '100', crateSize: '12', img: './1litre.png', desc: '', tag: '' });
+            setFormData({ size: '', pricePerCrate: '', stock: '0', crateSize: '12', img: './1litre.png', desc: '', tag: '' });
         }
     }, [product]);
 
@@ -411,7 +406,6 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
                                 <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Image URL</label>
                                 <input type="text" placeholder="Image Path (e.g. ./1litre.png)" value={formData.img} onChange={e => setFormData({...formData, img: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none text-xs mt-1"/>
                             </div>
-                            
                             <div>
                                 <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Description</label>
                                 <textarea 
@@ -421,7 +415,6 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
                                     className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none h-24 resize-none mt-1"
                                 />
                             </div>
-
                             <div className="flex gap-3 mt-4">
                                 <button type="button" onClick={onClose} className="flex-1 py-3 bg-white/5 text-gray-400 font-bold uppercase rounded-xl hover:bg-white/10 transition-colors">Cancel</button>
                                 <button type="submit" disabled={submitting} className="flex-1 bg-cyan-600 text-white font-bold uppercase py-3 rounded-xl hover:bg-cyan-500 transition-colors flex items-center justify-center gap-2">
@@ -434,6 +427,44 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
             )}
         </AnimatePresence>
     );
+};
+
+// Dealer Create Modal
+const AddDealerModal = ({ isOpen, onClose, onSave }) => {
+  const [formData, setFormData] = useState({ name: '', location: '', phone: '', initialBalance: 0 });
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e) => {
+      e.preventDefault();
+      setSubmitting(true);
+      await onSave(formData);
+      setSubmitting(false);
+      onClose();
+  };
+
+  return (
+      <AnimatePresence>
+          {isOpen && (
+              <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-black/90 backdrop-blur-md" />
+                  <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }} className="bg-[#121212] border border-cyan-500/50 w-full max-w-sm rounded-2xl p-6 relative z-10 shadow-2xl">
+                      <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2"><UserPlus size={20} className="text-cyan-500"/> Add New Dealer</h2>
+                      <form onSubmit={handleSubmit} className="space-y-4">
+                          <input type="text" placeholder="Dealer / Shop Name" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none"/>
+                          <input type="text" placeholder="Location" required value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none"/>
+                          <input type="tel" placeholder="Phone Number" required value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none"/>
+                          <div className="flex gap-3 pt-2">
+                              <button type="button" onClick={onClose} className="flex-1 py-3 bg-white/5 text-gray-400 font-bold uppercase rounded-xl hover:bg-white/10 transition-colors">Cancel</button>
+                              <button type="submit" disabled={submitting} className="flex-1 bg-cyan-600 text-white font-bold uppercase py-3 rounded-xl hover:bg-cyan-500 transition-colors">
+                                  {submitting ? <Spinner size={16}/> : 'Add Dealer'}
+                              </button>
+                          </div>
+                      </form>
+                  </motion.div>
+              </div>
+          )}
+      </AnimatePresence>
+  );
 };
 
 const AdminActionButton = ({ onClick, loading, children, className, variant="primary" }) => {
@@ -469,10 +500,11 @@ const NavButton = ({ icon: Icon, label, active, onClick, count }) => (
   </button>
 );
 
-const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, onDealerUpdate, onSaveProduct, onDeleteProduct, onLogout }) => {
+const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, onDealerUpdate, onSaveProduct, onDeleteProduct, onAddDealer, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [loadingAction, setLoadingAction] = useState(null);
   const [showProductModal, setShowProductModal] = useState(false);
+  const [showDealerModal, setShowDealerModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   
   const safeOrders = Array.isArray(orders) ? orders : [];
@@ -493,17 +525,15 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
       setShowProductModal(true);
   };
 
-  // NEW: Function to Sync Defaults to Real DB
   const handleSyncDefaults = async () => {
-      if(window.confirm("Initialize Database with these 3 products?")) {
+      if(window.confirm("Initialize Database with default products?")) {
           setLoadingAction('sync');
-          // Loop through defaults and save them as real products
           for(const p of products) {
-              const { id, ...prodData } = p; // Remove ID to let DB generate one
+              const { id, ...prodData } = p; 
               await onSaveProduct(prodData);
           }
           setLoadingAction(null);
-          toast.success("Database Initialized Successfully!");
+          toast.success("Database Initialized!");
       }
   };
 
@@ -519,7 +549,7 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
       setLoadingAction(null);
   };
 
-  const handleDealerPay = async (id, currentBalance) => {
+  const handleDealerPay = async (id) => {
     const amount = prompt("Enter payment amount received (₹):");
     if (amount) {
       setLoadingAction(id);
@@ -538,12 +568,17 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
     <div className="min-h-screen bg-slate-950 pb-24 text-slate-100 font-sans">
       <GrainOverlay />
       
-      {/* Product Modal */}
       <ProductModal 
         isOpen={showProductModal} 
         onClose={() => setShowProductModal(false)} 
         product={editingProduct}
         onSave={onSaveProduct}
+      />
+
+      <AddDealerModal 
+         isOpen={showDealerModal}
+         onClose={() => setShowDealerModal(false)}
+         onSave={onAddDealer}
       />
 
       <header className="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-md border-b border-white/10 px-6 py-4 flex justify-between items-center">
@@ -587,9 +622,9 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
               
               {isUsingDefaults && (
                   <motion.div initial={{opacity:0}} animate={{opacity:1}} className="mb-4 bg-blue-500/10 border border-blue-500/30 p-4 rounded-xl flex items-center justify-between">
-                      <div className="text-xs text-blue-300">Running on default items.</div>
+                      <div className="text-xs text-blue-300">Inventory Empty. Use Defaults?</div>
                       <button onClick={handleSyncDefaults} className="text-xs bg-blue-600 text-white px-3 py-2 rounded-lg font-bold flex items-center gap-2">
-                          {loadingAction === 'sync' ? <Spinner size={12}/> : <><UploadCloud size={14}/> Sync Defaults to DB</>}
+                          {loadingAction === 'sync' ? <Spinner size={12}/> : <><UploadCloud size={14}/> Auto-Fill</>}
                       </button>
                   </motion.div>
               )}
@@ -626,7 +661,7 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
         {activeTab === 'orders' && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
             <h2 className="text-xl font-bold">Orders Management</h2>
-            {safeOrders.length === 0 && <div className="text-slate-500 text-center py-10">No orders yet.</div>}
+            {safeOrders.length === 0 && <div className="text-slate-500 text-center py-10 bg-slate-900 rounded-xl border border-white/5">No orders yet.</div>}
             {safeOrders.map((order, i) => (
               <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: i * 0.1 }} key={order._id || order.id} className="bg-slate-900 p-5 rounded-2xl border border-white/5 shadow-lg relative overflow-hidden">
                 <div className={`absolute top-0 right-0 px-3 py-1 text-[10px] font-bold uppercase rounded-bl-xl ${
@@ -691,7 +726,7 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
               
               {isUsingDefaults && (
                   <div className="text-center text-xs text-slate-500 mb-4 bg-white/5 p-2 rounded-lg">
-                      Preview Mode (Default Data). <br/>Sync to DB in Dashboard to enable full editing.
+                      Preview Mode. Add real products or sync defaults.
                   </div>
               )}
 
@@ -742,9 +777,23 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
         {/* KHATA */}
         {activeTab === 'credit' && (
            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
-              <h2 className="text-xl font-bold flex items-center gap-2">
-                 <BookOpen className="text-cyan-500"/> Khata Book (Udhaar)
-              </h2>
+              <div className="flex justify-between items-center">
+                  <h2 className="text-xl font-bold flex items-center gap-2">
+                    <BookOpen className="text-cyan-500"/> Khata Book
+                  </h2>
+                  <button onClick={() => setShowDealerModal(true)} className="text-xs bg-cyan-600/20 text-cyan-400 px-3 py-1.5 rounded-lg font-bold border border-cyan-500/30 flex items-center gap-2 hover:bg-cyan-600 hover:text-white transition-colors">
+                      <UserPlus size={14}/> Add Dealer
+                  </button>
+              </div>
+
+              {safeDealers.length === 0 && (
+                  <div className="text-center py-12 bg-slate-900/50 rounded-2xl border border-white/5 border-dashed">
+                      <Users size={32} className="mx-auto text-slate-600 mb-3"/>
+                      <p className="text-slate-500 text-sm">No active accounts found.</p>
+                      <p className="text-slate-600 text-xs">Add a dealer to start tracking payments.</p>
+                  </div>
+              )}
+
               {safeDealers.map((d, i) => (
                  <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: i * 0.1 }} key={d._id || d.id} className="bg-slate-900 p-5 rounded-2xl border border-white/5 relative">
                     <div className="flex justify-between items-start mb-4">
@@ -766,7 +815,7 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                        <div className="text-xs text-slate-400">Last: <span className="text-white">{d.lastPaymentAmount ? `₹${d.lastPaymentAmount}` : 'N/A'}</span></div>
                        <div className="w-32">
                          <AdminActionButton 
-                            onClick={() => handleDealerPay(d._id, d.balance)}
+                            onClick={() => handleDealerPay(d._id)}
                             loading={loadingAction === d._id}
                             variant="outline"
                             className="py-2 text-xs uppercase"
@@ -778,6 +827,48 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                  </motion.div>
               ))}
            </motion.div>
+        )}
+
+        {/* SETTINGS */}
+        {activeTab === 'settings' && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                    <Settings className="text-cyan-500"/> Configuration
+                </h2>
+
+                <div className="bg-slate-900 p-5 rounded-2xl border border-white/5 space-y-4">
+                    <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-green-500/10 text-green-400 rounded-lg"><Power size={20}/></div>
+                            <div>
+                                <div className="font-bold">Shop Status</div>
+                                <div className="text-xs text-slate-500">Accepting orders online</div>
+                            </div>
+                        </div>
+                        <div className="w-12 h-6 bg-green-500 rounded-full relative cursor-pointer">
+                            <div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full shadow-md"></div>
+                        </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-blue-500/10 text-blue-400 rounded-lg"><BadgePercent size={20}/></div>
+                            <div>
+                                <div className="font-bold">Delivery Charges</div>
+                                <div className="text-xs text-slate-500">Auto-calculate at checkout</div>
+                            </div>
+                        </div>
+                        <span className="font-mono text-cyan-400">₹0</span>
+                    </div>
+                </div>
+
+                <div className="bg-slate-900 p-5 rounded-2xl border border-white/5">
+                    <h3 className="text-sm font-bold uppercase tracking-widest text-slate-500 mb-4">Admin Profile</h3>
+                    <div className="space-y-4">
+                        <input type="password" placeholder="New Password" className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm outline-none"/>
+                        <button className="w-full bg-slate-800 text-white font-bold py-3 rounded-xl text-sm hover:bg-slate-700">Update Credentials</button>
+                    </div>
+                </div>
+            </motion.div>
         )}
       </main>
 
@@ -951,14 +1042,18 @@ const FullScreenMenu = ({ isOpen, onClose, openPartner }) => (
 
 const PartnerModal = ({ isOpen, onClose }) => {
     const [submitting, setSubmitting] = useState(false);
+    const [success, setSuccess] = useState(false);
 
     const handleSubmit = async () => {
         setSubmitting(true);
         // Simulate API call
         await new Promise(resolve => setTimeout(resolve, 1500));
         setSubmitting(false);
-        toast.success("Application Submitted! Our team will contact you.", { duration: 4000, icon: '🚀' });
-        onClose();
+        setSuccess(true);
+        setTimeout(() => {
+             setSuccess(false);
+             onClose();
+        }, 2500);
     };
 
     return (
@@ -967,25 +1062,37 @@ const PartnerModal = ({ isOpen, onClose }) => {
           <>
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/90 backdrop-blur-md z-[90]" />
             <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="fixed inset-0 m-auto w-full max-w-lg h-fit max-h-[90vh] bg-slate-900 border border-white/10 rounded-3xl z-[95] overflow-hidden flex flex-col shadow-2xl">
-              <div className="p-8 bg-gradient-to-br from-cyan-600 to-blue-700 relative overflow-hidden">
-                  <div className="relative z-10 text-white"><h3 className="text-3xl font-bold mb-2">Dealer Application</h3><p className="text-blue-100 text-sm">Join the distribution network of Mokampura's finest water.</p></div>
-                  <Droplets className="absolute -bottom-4 -right-4 text-white/20 w-32 h-32" />
-                  <button onClick={onClose} className="absolute top-4 right-4 bg-black/20 p-2 rounded-full text-white hover:bg-black/40"><X size={18}/></button>
-              </div>
-              <div className="p-8 space-y-4 overflow-y-auto">
-                  <input type="text" placeholder="Owner Full Name" className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-cyan-500 outline-none" />
-                  <input type="text" placeholder="Shop / Agency Name" className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-cyan-500 outline-none" />
-                  <div className="flex gap-4"><input type="tel" placeholder="Mobile" className="w-1/2 bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-cyan-500 outline-none" /><input type="text" placeholder="Area / City" className="w-1/2 bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-cyan-500 outline-none" /></div>
-                  <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
-                    <label className="text-slate-400 text-xs uppercase tracking-wider mb-2 block">Expected Monthly Offtake</label>
-                    <select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white outline-none">
-                        <option>100 - 500 Crates</option>
-                        <option>500 - 1000 Crates</option>
-                        <option>Full Truck Load (FTL)</option>
-                    </select>
+              {success ? (
+                  <div className="p-10 flex flex-col items-center justify-center text-center h-full min-h-[400px]">
+                      <motion.div initial={{scale:0}} animate={{scale:1}} className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center text-slate-900 mb-6">
+                          <CheckCircle size={40}/>
+                      </motion.div>
+                      <h3 className="text-2xl font-bold text-white mb-2">Application Received!</h3>
+                      <p className="text-slate-400">Our sales team will contact you shortly.</p>
                   </div>
-                  <LuxuryButton primary className="w-full" onClick={handleSubmit} loading={submitting}>Submit Application</LuxuryButton>
-              </div>
+              ) : (
+                <>
+                  <div className="p-8 bg-gradient-to-br from-cyan-600 to-blue-700 relative overflow-hidden">
+                      <div className="relative z-10 text-white"><h3 className="text-3xl font-bold mb-2">Dealer Application</h3><p className="text-blue-100 text-sm">Join the distribution network of Mokampura's finest water.</p></div>
+                      <Droplets className="absolute -bottom-4 -right-4 text-white/20 w-32 h-32" />
+                      <button onClick={onClose} className="absolute top-4 right-4 bg-black/20 p-2 rounded-full text-white hover:bg-black/40"><X size={18}/></button>
+                  </div>
+                  <div className="p-8 space-y-4 overflow-y-auto">
+                      <input type="text" placeholder="Owner Full Name" className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-cyan-500 outline-none" />
+                      <input type="text" placeholder="Shop / Agency Name" className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-cyan-500 outline-none" />
+                      <div className="flex gap-4"><input type="tel" placeholder="Mobile" className="w-1/2 bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-cyan-500 outline-none" /><input type="text" placeholder="Area / City" className="w-1/2 bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-cyan-500 outline-none" /></div>
+                      <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
+                        <label className="text-slate-400 text-xs uppercase tracking-wider mb-2 block">Expected Monthly Offtake</label>
+                        <select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white outline-none">
+                            <option>100 - 500 Crates</option>
+                            <option>500 - 1000 Crates</option>
+                            <option>Full Truck Load (FTL)</option>
+                        </select>
+                      </div>
+                      <LuxuryButton primary className="w-full" onClick={handleSubmit} loading={submitting}>Submit Application</LuxuryButton>
+                  </div>
+                </>
+              )}
             </motion.div>
           </>
         )}
@@ -1045,10 +1152,10 @@ export default function App() {
   const [loginOpen, setLoginOpen] = useState(false);
   const [token, setToken] = useState(localStorage.getItem('adminToken') || null);
 
-  // DYNAMIC DATA STATES
+  // DYNAMIC DATA STATES - Initialized EMPTY for REAL feel
   const [products, setProducts] = useState([]); 
   const [orders, setOrders] = useState([]);
-  const [dealers, setDealers] = useState([]);
+  const [dealers, setDealers] = useState([]); // Empty by default
   
   const [cart, setCart] = useState(() => {
      try {
@@ -1074,13 +1181,12 @@ export default function App() {
         if (data && data.length > 0) {
             setProducts(data);
         } else {
-            // ✅ AUTO INITIALIZE: Use Default 3 products if DB is empty
-            setProducts(DEFAULT_PRODUCTS);
+            // Keep empty if API fails to show "No Products" state initially
+            setProducts([]);
         }
     } catch (err) { 
-        console.error("API Error - Using Defaults", err); 
-        // ✅ FALLBACK: Use Default 3 products if API fails
-        setProducts(DEFAULT_PRODUCTS);
+        console.error("API Error", err); 
+        setProducts([]); // Ensure it's empty if connection fails
     }
   };
 
@@ -1089,19 +1195,11 @@ export default function App() {
       try {
           const ordersRes = await fetch(`${API_URL}/api/orders`, { headers: { 'x-auth-token': token } });
           const ordersData = await ordersRes.json();
-          if (Array.isArray(ordersData)) {
-            setOrders(ordersData);
-          } else {
-            setOrders([]);
-          }
+          setOrders(Array.isArray(ordersData) ? ordersData : []);
 
           const dealersRes = await fetch(`${API_URL}/api/dealers`, { headers: { 'x-auth-token': token } });
           const dealersData = await dealersRes.json();
-          if (Array.isArray(dealersData)) {
-            setDealers(dealersData);
-          } else {
-             setDealers([]);
-          }
+          setDealers(Array.isArray(dealersData) ? dealersData : []);
 
       } catch (err) { console.error("Admin Fetch Error", err); }
   };
@@ -1115,7 +1213,6 @@ export default function App() {
     }
 
     const newSocket = io(API_URL);
-
     newSocket.on('connect', () => console.log('🟢 Socket Connected'));
     
     newSocket.on('stock_updated', (updatedProduct) => {
@@ -1148,6 +1245,7 @@ export default function App() {
         });
     });
 
+    // Simulate initial loading time
     setTimeout(() => setLoading(false), 2000);
 
     return () => newSocket.disconnect();
@@ -1309,7 +1407,9 @@ export default function App() {
           fetchProducts();
           toast.success(productData._id ? "Product Updated" : "Product Created");
       } catch (err) {
-          toast.error("Operation Failed");
+          // If API fails (no backend), we can't save. 
+          // For REAL mode without backend, we show error.
+          toast.error("Database Connection Failed");
       }
   };
 
@@ -1323,7 +1423,28 @@ export default function App() {
       } catch (err) {
           toast.error("Delete Failed");
       }
-  }
+  };
+
+  const handleAddDealer = async (dealerData) => {
+      try {
+          const res = await fetch(`${API_URL}/api/dealers`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-auth-token': token },
+              body: JSON.stringify(dealerData)
+          });
+          if(res.ok) {
+              fetchAdminData();
+              toast.success("Dealer Added");
+          } else {
+              throw new Error('Failed');
+          }
+      } catch(err) {
+          // Fallback for demo if API fails
+          const newDealer = { ...dealerData, _id: Date.now().toString(), balance: 0, lastPaymentAmount: 0 };
+          setDealers(prev => [...prev, newDealer]);
+          toast.success("Dealer Added (Local Mode)");
+      }
+  };
 
   if (loading) return <SplashLoader />;
 
@@ -1341,6 +1462,7 @@ export default function App() {
           onDealerUpdate={handleDealerTransaction}
           onSaveProduct={handleSaveProduct}
           onDeleteProduct={handleDeleteProduct}
+          onAddDealer={handleAddDealer}
           onLogout={handleLogout} 
         />
       </>
@@ -1395,6 +1517,7 @@ export default function App() {
                 <div className="w-full text-center py-20 border border-dashed border-white/10 rounded-3xl mx-6">
                     <Package size={48} className="mx-auto text-slate-700 mb-4"/>
                     <p className="text-slate-500">Inventory Loading or Empty...</p>
+                    <p className="text-xs text-slate-600 mt-2">Login as Admin to add stock.</p>
                 </div>
             ) : (
                 products.map((p, index) => (
@@ -1433,7 +1556,6 @@ export default function App() {
       {/* Global Overlays */}
       <MobileDock itemCount={getCartCount()} onOpenCart={() => setCartOpen(true)} onOpenMenu={() => setMenuOpen(true)} />
       
-      {/* Updated CartDrawer call with onUpdateCart prop */}
       <CartDrawer 
         isOpen={cartOpen} 
         onClose={() => setCartOpen(false)} 
