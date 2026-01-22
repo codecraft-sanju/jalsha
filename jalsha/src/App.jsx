@@ -6,6 +6,8 @@ import {
   useTransform, 
   useSpring, 
 } from 'framer-motion';
+// Fixed: Using core Lenis directly instead of the wrapper library to avoid React 19 conflicts
+import Lenis from 'lenis';
 import { 
   Droplets, X, Menu, 
   ArrowRight, Package, 
@@ -62,7 +64,8 @@ const DEFAULT_PRODUCTS = [
 // --- VISUAL MICRO-COMPONENTS ---
 
 const GrainOverlay = () => (
-  <div className="pointer-events-none fixed inset-0 z-[10] opacity-[0.04] mix-blend-overlay" style={{ backgroundImage: NOISE_BG }} />
+  // Optimized: hidden on mobile to save battery/performance, visible on md+
+  <div className="hidden md:block pointer-events-none fixed inset-0 z-[10] opacity-[0.04] mix-blend-overlay will-change-opacity" style={{ backgroundImage: NOISE_BG }} />
 );
 
 const BlurPatch = ({ color = "bg-cyan-500", className }) => (
@@ -172,7 +175,7 @@ const FloatingBubbles = () => {
       {bubbles.map(b => (
         <motion.div
           key={b.id}
-          className="absolute rounded-full bg-cyan-500/10 backdrop-blur-sm border border-cyan-500/10"
+          className="absolute rounded-full bg-cyan-500/10 backdrop-blur-sm border border-cyan-500/10 will-change-transform"
           style={{ width: b.size, height: b.size, left: `${b.left}%`, bottom: -50 }}
           animate={{ y: -1200, opacity: [0, 1, 0] }}
           transition={{ duration: b.duration, repeat: Infinity, delay: b.delay, ease: "linear" }}
@@ -218,7 +221,12 @@ const MobileDock = ({ itemCount, onOpenCart, onOpenMenu }) => {
 
 const ParallaxBottle = () => {
   const { scrollY } = useScroll();
-  const smoothY = useSpring(scrollY, { damping: 15, stiffness: 100 }); 
+  // Optimized Physics for Mobile: Lower mass, Higher stiffness for instant tracking without "floaty lag"
+  const smoothY = useSpring(scrollY, { 
+    damping: 25, 
+    stiffness: 120, 
+    mass: 0.2 
+  }); 
   const y = useTransform(smoothY, [0, 500, 1000], ['-35%', '25%', '50%']);
   const rotate = useTransform(smoothY, [0, 500], [5, 0]); 
   const scale = useTransform(smoothY, [0, 500], [1.1, 0.9]); 
@@ -227,7 +235,11 @@ const ParallaxBottle = () => {
   return (
     <div className="fixed inset-0 pointer-events-none z-0 flex items-center justify-center overflow-hidden">
       <BlurPatch className="w-[80vw] h-[80vw] bg-cyan-500/20 md:opacity-10" />
-      <motion.div style={{ y, rotate, scale, opacity }} className="relative h-[65vh] md:h-[95vh] w-auto aspect-[1/3] z-20">
+      <motion.div 
+        style={{ y, rotate, scale, opacity }} 
+        // transform-gpu and will-change-transform are critical for mobile performance
+        className="relative h-[65vh] md:h-[95vh] w-auto aspect-[1/3] z-20 will-change-transform transform-gpu"
+      >
         <img 
           src="./1litre.png" alt="Jalsa Premium" 
           className="w-full h-full object-contain drop-shadow-[0_40px_80px_rgba(0,0,0,0.7)]"
@@ -1155,16 +1167,40 @@ export default function App() {
   const [dealers, setDealers] = useState([]); // Empty by default
   
   const [cart, setCart] = useState(() => {
-     try {
-       const saved = localStorage.getItem('jalsa_cart');
-       return saved ? JSON.parse(saved) : {};
-     } catch (e) {
-       return {};
-     }
+      try {
+        const saved = localStorage.getItem('jalsa_cart');
+        return saved ? JSON.parse(saved) : {};
+      } catch (e) {
+        return {};
+      }
   }); 
   const [menuOpen, setMenuOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [partnerOpen, setPartnerOpen] = useState(false);
+
+  // --- LENIS SMOOTH SCROLL SETUP (Fixed for React 19) ---
+  useEffect(() => {
+    // Initialize Lenis
+    const lenis = new Lenis({
+        duration: 1.5,
+        easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)), // Custom easing for "butter" feel
+        smoothWheel: true,
+        touchMultiplier: 2,
+    });
+
+    // RAF Loop
+    function raf(time) {
+        lenis.raf(time);
+        requestAnimationFrame(raf);
+    }
+
+    requestAnimationFrame(raf);
+
+    // Cleanup
+    return () => {
+        lenis.destroy();
+    };
+  }, []);
 
   useEffect(() => {
       localStorage.setItem('jalsa_cart', JSON.stringify(cart));
@@ -1468,161 +1504,162 @@ export default function App() {
 
   // RENDER: Customer View
   return (
-    <div className="bg-slate-950 min-h-screen text-slate-200 font-sans overflow-x-hidden selection:bg-cyan-500/30">
-      <Toaster position="bottom-center" toastOptions={{ style: { background: '#1e293b', color: '#fff', border: '1px solid #334155' }}} />
-      <GrainOverlay />
-      <FloatingBubbles />
-      <ParallaxBottle />
-      
-      {/* Navigation */}
-      <nav className="fixed top-0 w-full z-40 px-8 py-6 hidden md:flex justify-between items-center mix-blend-difference text-white">
-        <div className="text-2xl font-black tracking-tighter flex items-center gap-2">
-            <Droplets className="text-cyan-400" size={24}/> जलsa.
-        </div>
-        <div className="flex gap-8 text-sm font-bold tracking-widest uppercase opacity-80">
-          <button onClick={() => setMenuOpen(true)} className="hover:text-cyan-400 transition-colors">Catalog</button>
-          <button onClick={() => setPartnerOpen(true)} className="hover:text-cyan-400 transition-colors">Distributorship</button>
-        </div>
-        <button onClick={() => setCartOpen(true)} className="flex gap-2 items-center hover:text-cyan-400 transition-colors font-bold uppercase text-sm">
-          <Package size={18} /> Bulk List ({getCartTotalCrates()})
-        </button>
-      </nav>
+        // REMOVED THE WRAPPER, USING USEEFFECT HOOK ABOVE INSTEAD
+        <div className="bg-slate-950 min-h-screen text-slate-200 font-sans overflow-x-hidden selection:bg-cyan-500/30">
+        <Toaster position="bottom-center" toastOptions={{ style: { background: '#1e293b', color: '#fff', border: '1px solid #334155' }}} />
+        <GrainOverlay />
+        <FloatingBubbles />
+        <ParallaxBottle />
+        
+        {/* Navigation */}
+        <nav className="fixed top-0 w-full z-40 px-8 py-6 hidden md:flex justify-between items-center mix-blend-difference text-white">
+            <div className="text-2xl font-black tracking-tighter flex items-center gap-2">
+                <Droplets className="text-cyan-400" size={24}/> जलsa.
+            </div>
+            <div className="flex gap-8 text-sm font-bold tracking-widest uppercase opacity-80">
+            <button onClick={() => setMenuOpen(true)} className="hover:text-cyan-400 transition-colors">Catalog</button>
+            <button onClick={() => setPartnerOpen(true)} className="hover:text-cyan-400 transition-colors">Distributorship</button>
+            </div>
+            <button onClick={() => setCartOpen(true)} className="flex gap-2 items-center hover:text-cyan-400 transition-colors font-bold uppercase text-sm">
+            <Package size={18} /> Bulk List ({getCartCount()})
+            </button>
+        </nav>
 
-      {/* Main Content */}
-      <main className="relative pb-0">
-        <HeroSection openPartnerModal={() => setPartnerOpen(true)} />
+        {/* Main Content */}
+        <main className="relative pb-0">
+            <HeroSection openPartnerModal={() => setPartnerOpen(true)} />
 
-        <div className="bg-cyan-500 text-slate-950 py-4 overflow-hidden whitespace-nowrap relative z-20 rotate-[-2deg] scale-110 shadow-2xl origin-left my-20 border-y-4 border-slate-950">
-          <motion.div animate={{ x: ["0%", "-50%"] }} transition={{ repeat: Infinity, duration: 5, ease: "linear" }} className="flex gap-12 font-black text-4xl md:text-6xl uppercase tracking-tighter items-center transform-gpu">
-            {[1,2,3,4,5,6].map(i => (
-              <span key={i} className="flex items-center gap-4">Wholesale Supply <Zap fill="currentColor" size={32}/> Bulk Orders <Truck fill="currentColor" size={32}/></span>
-            ))}
-          </motion.div>
-        </div>
+            <div className="bg-cyan-500 text-slate-950 py-4 overflow-hidden whitespace-nowrap relative z-20 rotate-[-2deg] scale-110 shadow-2xl origin-left my-20 border-y-4 border-slate-950">
+            <motion.div animate={{ x: ["0%", "-50%"] }} transition={{ repeat: Infinity, duration: 5, ease: "linear" }} className="flex gap-12 font-black text-4xl md:text-6xl uppercase tracking-tighter items-center transform-gpu">
+                {[1,2,3,4,5,6].map(i => (
+                <span key={i} className="flex items-center gap-4">Wholesale Supply <Zap fill="currentColor" size={32}/> Bulk Orders <Truck fill="currentColor" size={32}/></span>
+                ))}
+            </motion.div>
+            </div>
 
-        <section className="py-20 relative z-10">
-          <div className="container mx-auto px-6 mb-12 flex justify-between items-end">
-            <Reveal direction="left">
-                <h2 className="text-4xl md:text-7xl font-bold text-white tracking-tighter">Stock <span className="text-cyan-500">Order</span></h2>
-                <p className="text-slate-400 mt-2 text-sm">Select crates count for your shop/godown.</p>
-            </Reveal>
-          </div>
-          
-          {/* Dynamic Product List (Empty State Handling) */}
-          <div className="flex overflow-x-auto snap-x snap-mandatory gap-6 px-6 pb-12 scrollbar-hide pt-10">
-            {products.length === 0 ? (
-                <div className="w-full text-center py-20 border border-dashed border-white/10 rounded-3xl mx-6">
-                    <Package size={48} className="mx-auto text-slate-700 mb-4"/>
-                    <p className="text-slate-500">Inventory Loading or Empty...</p>
-                    <p className="text-xs text-slate-600 mt-2">Login as Admin to add stock.</p>
-                </div>
-            ) : (
-                products.map((p, index) => (
-                <ProductCard key={p._id || p.id} index={index} p={p} onUpdateCart={handleUpdateCart} cartItem={cart[p._id || p.id]} />
-                ))
-            )}
-          </div>
-        </section>
-
-        <section className="container mx-auto px-6 py-20 relative z-10 grid md:grid-cols-3 gap-6">
-           <FeatureTile icon={Truck} title="Factory Direct" desc="We manage our own logistics fleet." delay={0.1} />
-           <FeatureTile icon={Layers} title="Stackable" desc="Crates designed for safe warehousing." delay={0.2} />
-           <FeatureTile icon={Calculator} title="High Margin" desc="Competitive pricing structure for dealers." delay={0.3} />
-        </section>
-
-        <section className="py-24 border-y border-white/5 bg-slate-900/40 relative z-10 backdrop-blur-sm">
-           <div className="container mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-12">
-               <StatItem icon={Users} value="120+" label="Active Dealers" index={0} />
-               <StatItem icon={Clock} value="24h" label="Dispatch Time" index={1} />
-               <StatItem icon={Award} value="ISO" label="Certified Plant" index={2} />
-               <StatItem icon={Truck} value="10k+" label="Crates Delivered" index={3} />
-           </div>
-        </section>
-
-        <section className="relative py-32 flex flex-col items-center justify-center text-center px-6">
-           <BlurPatch color="bg-blue-600" className="w-[300px] h-[300px]" />
-           <Reveal direction="up">
-             <h2 className="text-4xl md:text-6xl font-bold text-white mb-8 max-w-2xl relative z-10">Ready to stock <span className="text-cyan-400">जलsa</span>?</h2>
-           </Reveal>
-           <Reveal direction="up" delay={0.2}>
-             <LuxuryButton primary onClick={() => setPartnerOpen(true)} className="scale-125 z-10">Apply for Dealership</LuxuryButton>
-           </Reveal>
-        </section>
-      </main>
-
-      {/* Global Overlays */}
-      <MobileDock itemCount={getCartCount()} onOpenCart={() => setCartOpen(true)} onOpenMenu={() => setMenuOpen(true)} />
-      
-      <CartDrawer 
-        isOpen={cartOpen} 
-        onClose={() => setCartOpen(false)} 
-        cart={cart} 
-        onUpdateCart={handleUpdateCart}
-        onCheckout={handleWhatsAppCheckout} 
-      />
-      
-      <FullScreenMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} openPartner={() => { setMenuOpen(false); setPartnerOpen(true); }} />
-      <PartnerModal isOpen={partnerOpen} onClose={() => setPartnerOpen(false)} />
-      <LoginModal isOpen={loginOpen} onClose={() => setLoginOpen(false)} onLogin={handleLogin} />
-
-      {/* Footer */}
-      <footer className="bg-black pt-20 pb-10 border-t border-white/10 relative z-10">
-         <div className="container mx-auto px-6">
-            <div className="grid md:grid-cols-4 gap-12 mb-16">
-               <div className="col-span-1 md:col-span-1">
-                  <div className="text-3xl font-black text-white tracking-tighter mb-6 flex items-center gap-2">
-                      <Droplets className="text-cyan-500" /> जलsa.
-                  </div>
-                  <p className="text-slate-500 text-sm mb-6 leading-relaxed">Pure hydration, bottled at source. Proudly serving Rajasthan.</p>
-                  <div className="flex gap-4 mb-8">
-                      <SocialIcon Icon={Instagram} /> <SocialIcon Icon={Facebook} /> <SocialIcon Icon={Linkedin} />
-                  </div>
-                  {/* ADMIN LOGIN */}
-                  <div>
-                      <button onClick={() => token ? setViewMode('admin') : setLoginOpen(true)} className="text-[10px] uppercase tracking-widest text-slate-700 hover:text-cyan-500 transition-colors flex items-center gap-2 border border-slate-800 px-3 py-1 rounded-full">
-                          <Settings size={10} /> Staff Login
-                      </button>
-                  </div>
-               </div>
-               
-               {/* Quick Links */}
-               <div>
-                  <h4 className="text-white font-bold uppercase tracking-widest text-xs mb-6">Quick Links</h4>
-                  <ul className="space-y-4 text-slate-400 text-sm">
-                      <li className="hover:text-cyan-400 cursor-pointer transition-colors">Product Catalog</li>
-                      <li className="hover:text-cyan-400 cursor-pointer transition-colors" onClick={() => setPartnerOpen(true)}>Partner Program</li>
-                      <li className="hover:text-cyan-400 cursor-pointer transition-colors">Quality Reports</li>
-                      <li className="hover:text-cyan-400 cursor-pointer transition-colors">Contact Support</li>
-                  </ul>
-               </div>
-               
-               {/* Contact */}
-               <div>
-                  <h4 className="text-white font-bold uppercase tracking-widest text-xs mb-6">Factory Contact</h4>
-                  <ul className="space-y-4 text-slate-400 text-sm">
-                      <li className="flex items-start gap-3"><MapPin size={16} className="text-cyan-500 mt-1 shrink-0" /><span>Plot No. 45, Industrial Area, Mokampura</span></li>
-                      <li className="flex items-center gap-3"><Phone size={16} className="text-cyan-500 shrink-0" /><span>+91 9867165845</span></li>
-                      <li className="flex items-center gap-3"><Mail size={16} className="text-cyan-500 shrink-0" /><span>sales@jalsawater.com</span></li>
-                  </ul>
-               </div>
-
-               {/* Newsletter */}
-               <div>
-                  <h4 className="text-white font-bold uppercase tracking-widest text-xs mb-6">Distributor Updates</h4>
-                  <div className="bg-white/5 p-1 rounded-lg border border-white/10 flex">
-                      <input type="email" placeholder="Your email" className="bg-transparent text-white px-4 py-2 w-full text-sm outline-none" />
-                      <button className="bg-cyan-600 text-white p-2 rounded-md hover:bg-cyan-500 transition-colors"><ArrowRight size={16} /></button>
-                  </div>
-                  <p className="text-xs text-slate-600 mt-4">Subscribe for price updates and seasonal offers.</p>
-               </div>
+            <section className="py-20 relative z-10">
+            <div className="container mx-auto px-6 mb-12 flex justify-between items-end">
+                <Reveal direction="left">
+                    <h2 className="text-4xl md:text-7xl font-bold text-white tracking-tighter">Stock <span className="text-cyan-500">Order</span></h2>
+                    <p className="text-slate-400 mt-2 text-sm">Select crates count for your shop/godown.</p>
+                </Reveal>
             </div>
             
-            <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-[10px] text-slate-600 uppercase tracking-widest">
-               <p>&copy; 2026 Eeji Enterprises Pvt Ltd.</p>
-               <div className="flex gap-6"><span>Privacy Policy</span><span>Terms of Trade</span></div>
+            {/* Dynamic Product List (Empty State Handling) */}
+            <div className="flex overflow-x-auto snap-x snap-mandatory gap-6 px-6 pb-12 scrollbar-hide pt-10">
+                {products.length === 0 ? (
+                    <div className="w-full text-center py-20 border border-dashed border-white/10 rounded-3xl mx-6">
+                        <Package size={48} className="mx-auto text-slate-700 mb-4"/>
+                        <p className="text-slate-500">Inventory Loading or Empty...</p>
+                        <p className="text-xs text-slate-600 mt-2">Login as Admin to add stock.</p>
+                    </div>
+                ) : (
+                    products.map((p, index) => (
+                    <ProductCard key={p._id || p.id} index={index} p={p} onUpdateCart={handleUpdateCart} cartItem={cart[p._id || p.id]} />
+                    ))
+                )}
             </div>
-         </div>
-      </footer>
-    </div>
+            </section>
+
+            <section className="container mx-auto px-6 py-20 relative z-10 grid md:grid-cols-3 gap-6">
+            <FeatureTile icon={Truck} title="Factory Direct" desc="We manage our own logistics fleet." delay={0.1} />
+            <FeatureTile icon={Layers} title="Stackable" desc="Crates designed for safe warehousing." delay={0.2} />
+            <FeatureTile icon={Calculator} title="High Margin" desc="Competitive pricing structure for dealers." delay={0.3} />
+            </section>
+
+            <section className="py-24 border-y border-white/5 bg-slate-900/40 relative z-10 backdrop-blur-sm">
+            <div className="container mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-12">
+                <StatItem icon={Users} value="120+" label="Active Dealers" index={0} />
+                <StatItem icon={Clock} value="24h" label="Dispatch Time" index={1} />
+                <StatItem icon={Award} value="ISO" label="Certified Plant" index={2} />
+                <StatItem icon={Truck} value="10k+" label="Crates Delivered" index={3} />
+            </div>
+            </section>
+
+            <section className="relative py-32 flex flex-col items-center justify-center text-center px-6">
+            <BlurPatch color="bg-blue-600" className="w-[300px] h-[300px]" />
+            <Reveal direction="up">
+                <h2 className="text-4xl md:text-6xl font-bold text-white mb-8 max-w-2xl relative z-10">Ready to stock <span className="text-cyan-400">जलsa</span>?</h2>
+            </Reveal>
+            <Reveal direction="up" delay={0.2}>
+                <LuxuryButton primary onClick={() => setPartnerOpen(true)} className="scale-125 z-10">Apply for Dealership</LuxuryButton>
+            </Reveal>
+            </section>
+        </main>
+
+        {/* Global Overlays */}
+        <MobileDock itemCount={getCartCount()} onOpenCart={() => setCartOpen(true)} onOpenMenu={() => setMenuOpen(true)} />
+        
+        <CartDrawer 
+            isOpen={cartOpen} 
+            onClose={() => setCartOpen(false)} 
+            cart={cart} 
+            onUpdateCart={handleUpdateCart}
+            onCheckout={handleWhatsAppCheckout} 
+        />
+        
+        <FullScreenMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} openPartner={() => { setMenuOpen(false); setPartnerOpen(true); }} />
+        <PartnerModal isOpen={partnerOpen} onClose={() => setPartnerOpen(false)} />
+        <LoginModal isOpen={loginOpen} onClose={() => setLoginOpen(false)} onLogin={handleLogin} />
+
+        {/* Footer */}
+        <footer className="bg-black pt-20 pb-10 border-t border-white/10 relative z-10">
+            <div className="container mx-auto px-6">
+                <div className="grid md:grid-cols-4 gap-12 mb-16">
+                <div className="col-span-1 md:col-span-1">
+                    <div className="text-3xl font-black text-white tracking-tighter mb-6 flex items-center gap-2">
+                        <Droplets className="text-cyan-500" /> जलsa.
+                    </div>
+                    <p className="text-slate-500 text-sm mb-6 leading-relaxed">Pure hydration, bottled at source. Proudly serving Rajasthan.</p>
+                    <div className="flex gap-4 mb-8">
+                        <SocialIcon Icon={Instagram} /> <SocialIcon Icon={Facebook} /> <SocialIcon Icon={Linkedin} />
+                    </div>
+                    {/* ADMIN LOGIN */}
+                    <div>
+                        <button onClick={() => token ? setViewMode('admin') : setLoginOpen(true)} className="text-[10px] uppercase tracking-widest text-slate-700 hover:text-cyan-500 transition-colors flex items-center gap-2 border border-slate-800 px-3 py-1 rounded-full">
+                            <Settings size={10} /> Staff Login
+                        </button>
+                    </div>
+                </div>
+                
+                {/* Quick Links */}
+                <div>
+                    <h4 className="text-white font-bold uppercase tracking-widest text-xs mb-6">Quick Links</h4>
+                    <ul className="space-y-4 text-slate-400 text-sm">
+                        <li className="hover:text-cyan-400 cursor-pointer transition-colors">Product Catalog</li>
+                        <li className="hover:text-cyan-400 cursor-pointer transition-colors" onClick={() => setPartnerOpen(true)}>Partner Program</li>
+                        <li className="hover:text-cyan-400 cursor-pointer transition-colors">Quality Reports</li>
+                        <li className="hover:text-cyan-400 cursor-pointer transition-colors">Contact Support</li>
+                    </ul>
+                </div>
+                
+                {/* Contact */}
+                <div>
+                    <h4 className="text-white font-bold uppercase tracking-widest text-xs mb-6">Factory Contact</h4>
+                    <ul className="space-y-4 text-slate-400 text-sm">
+                        <li className="flex items-start gap-3"><MapPin size={16} className="text-cyan-500 mt-1 shrink-0" /><span>Plot No. 45, Industrial Area, Mokampura</span></li>
+                        <li className="flex items-center gap-3"><Phone size={16} className="text-cyan-500 shrink-0" /><span>+91 9867165845</span></li>
+                        <li className="flex items-center gap-3"><Mail size={16} className="text-cyan-500 shrink-0" /><span>sales@jalsawater.com</span></li>
+                    </ul>
+                </div>
+
+                {/* Newsletter */}
+                <div>
+                    <h4 className="text-white font-bold uppercase tracking-widest text-xs mb-6">Distributor Updates</h4>
+                    <div className="bg-white/5 p-1 rounded-lg border border-white/10 flex">
+                        <input type="email" placeholder="Your email" className="bg-transparent text-white px-4 py-2 w-full text-sm outline-none" />
+                        <button className="bg-cyan-600 text-white p-2 rounded-md hover:bg-cyan-500 transition-colors"><ArrowRight size={16} /></button>
+                    </div>
+                    <p className="text-xs text-slate-600 mt-4">Subscribe for price updates and seasonal offers.</p>
+                </div>
+                </div>
+                
+                <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-[10px] text-slate-600 uppercase tracking-widest">
+                <p>&copy; 2026 Eeji Enterprises Pvt Ltd.</p>
+                <div className="flex gap-6"><span>Privacy Policy</span><span>Terms of Trade</span></div>
+                </div>
+            </div>
+        </footer>
+        </div>
   );
 }
