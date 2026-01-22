@@ -243,11 +243,8 @@ const ParallaxBottle = () => {
 const ProductCard = ({ p, onUpdateCart, cartItem, index }) => {
   const quantity = cartItem ? cartItem.quantity : 0;
   
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const rotateX = useTransform(y, [-100, 100], [30, -30]);
-  const rotateY = useTransform(x, [-100, 100], [-30, 30]);
-
+  // NOTE: Removed 3D tilt logic (useMotionValue, rotateX, rotateY) so the card stays flat.
+  
   const isOutOfStock = p.stock <= 0;
   const isLowStock = p.stock < 50;
 
@@ -266,17 +263,11 @@ const ProductCard = ({ p, onUpdateCart, cartItem, index }) => {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ delay: index * 0.1, duration: 0.5 }}
-      className="snap-center shrink-0 w-[85vw] md:w-[400px] perspective-1000"
+      className="snap-center shrink-0 w-[85vw] md:w-[400px]" // Removed perspective-1000
     >
       <motion.div 
-        style={{ rotateX, rotateY, z: 100, transformStyle: 'preserve-3d' }}
+        // Removed style={{ rotateX, rotateY... }} and onMouseMove handlers
         whileHover={{ scale: 1.02 }}
-        onMouseMove={(e) => {
-          const rect = e.currentTarget.getBoundingClientRect();
-          x.set(e.clientX - rect.left - rect.width / 2);
-          y.set(e.clientY - rect.top - rect.height / 2);
-        }}
-        onMouseLeave={() => { x.set(0); y.set(0); }}
         className="relative h-[600px] rounded-[2rem] bg-slate-900 border border-white/10 overflow-hidden group transition-all duration-300 hover:shadow-[0_0_50px_-20px_rgba(6,182,212,0.3)] flex flex-col transform-gpu"
       >
         <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-20" />
@@ -287,7 +278,7 @@ const ProductCard = ({ p, onUpdateCart, cartItem, index }) => {
            <motion.img 
              src={p.img || p.imageUrl} alt={p.size} 
              className={`h-full w-auto object-contain drop-shadow-2xl z-10 ${isOutOfStock ? 'grayscale opacity-50' : ''}`}
-             whileHover={!isOutOfStock ? { scale: 1.1, rotate: 5, z: 50 } : {}}
+             whileHover={!isOutOfStock ? { scale: 1.1, z: 50 } : {}} // Removed rotate: 5
              onError={(e) => {e.target.src = "https://placehold.co/200x400/000/FFF?text=Bottle"}}
            />
            {p.tag && !isOutOfStock && (
@@ -341,7 +332,6 @@ const ProductCard = ({ p, onUpdateCart, cartItem, index }) => {
                 > + </motion.button>
               </div>
               
-              {/* FIXED: Changed from conditional rendering to opacity transition to prevent layout shift ("mudna") */}
               <div className={`text-center text-[11px] text-cyan-400/80 tracking-wide transition-opacity duration-300 h-4 ${quantity > 0 ? 'opacity-100 animate-pulse' : 'opacity-0'}`}>
                 Total Bottles: {quantity * p.crateSize}
               </div>
