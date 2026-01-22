@@ -1034,11 +1034,17 @@ const FullScreenMenu = ({ isOpen, onClose, openPartner }) => (
 const PartnerModal = ({ isOpen, onClose }) => {
     const [submitting, setSubmitting] = useState(false);
     const [success, setSuccess] = useState(false);
+    const [form, setForm] = useState({ name: '', shop: '', mobile: '', city: '', volume: '100 - 500 Crates' });
 
     const handleSubmit = async () => {
         setSubmitting(true);
         // Simulate API call
         await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        // WhatsApp Redirect
+        const message = `*New Dealership Application*\n\nName: ${form.name}\nShop: ${form.shop}\nMobile: ${form.phone}\nCity: ${form.city}\nVolume: ${form.volume}`;
+        window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`, '_blank');
+
         setSubmitting(false);
         setSuccess(true);
         setTimeout(() => {
@@ -1058,8 +1064,8 @@ const PartnerModal = ({ isOpen, onClose }) => {
                       <motion.div initial={{scale:0}} animate={{scale:1}} className="w-20 h-20 bg-green-500 rounded-full flex items-center justify-center text-slate-900 mb-6">
                           <CheckCircle size={40}/>
                       </motion.div>
-                      <h3 className="text-2xl font-bold text-white mb-2">Application Received!</h3>
-                      <p className="text-slate-400">Our sales team will contact you shortly.</p>
+                      <h3 className="text-2xl font-bold text-white mb-2">Application Sent!</h3>
+                      <p className="text-slate-400">Opening WhatsApp to complete your request...</p>
                   </div>
               ) : (
                 <>
@@ -1069,12 +1075,12 @@ const PartnerModal = ({ isOpen, onClose }) => {
                       <button onClick={onClose} className="absolute top-4 right-4 bg-black/20 p-2 rounded-full text-white hover:bg-black/40"><X size={18}/></button>
                   </div>
                   <div className="p-8 space-y-4 overflow-y-auto">
-                      <input type="text" placeholder="Owner Full Name" className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-cyan-500 outline-none" />
-                      <input type="text" placeholder="Shop / Agency Name" className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-cyan-500 outline-none" />
-                      <div className="flex gap-4"><input type="tel" placeholder="Mobile" className="w-1/2 bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-cyan-500 outline-none" /><input type="text" placeholder="Area / City" className="w-1/2 bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-cyan-500 outline-none" /></div>
+                      <input type="text" placeholder="Owner Full Name" value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-cyan-500 outline-none" />
+                      <input type="text" placeholder="Shop / Agency Name" value={form.shop} onChange={e => setForm({...form, shop: e.target.value})} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-cyan-500 outline-none" />
+                      <div className="flex gap-4"><input type="tel" placeholder="Mobile" value={form.mobile} onChange={e => setForm({...form, mobile: e.target.value})} className="w-1/2 bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-cyan-500 outline-none" /><input type="text" placeholder="Area / City" value={form.city} onChange={e => setForm({...form, city: e.target.value})} className="w-1/2 bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-cyan-500 outline-none" /></div>
                       <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
                         <label className="text-slate-400 text-xs uppercase tracking-wider mb-2 block">Expected Monthly Offtake</label>
-                        <select className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white outline-none">
+                        <select value={form.volume} onChange={e => setForm({...form, volume: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white outline-none">
                             <option>100 - 500 Crates</option>
                             <option>500 - 1000 Crates</option>
                             <option>Full Truck Load (FTL)</option>
