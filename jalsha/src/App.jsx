@@ -863,7 +863,7 @@ const SocialIcon = ({ Icon }) => (
    </a>
 );
 
-const CartDrawer = ({ isOpen, onClose, cart, onCheckout }) => {
+const CartDrawer = ({ isOpen, onClose, cart, onCheckout, onUpdateCart }) => {
   const items = Object.values(cart);
   const totalCrates = items.reduce((acc, item) => acc + item.quantity, 0);
   const totalCost = items.reduce((acc, item) => acc + (item.quantity * item.pricePerCrate), 0);
@@ -890,12 +890,28 @@ const CartDrawer = ({ isOpen, onClose, cart, onCheckout }) => {
                 <div className="text-slate-500 text-center mt-20 flex flex-col items-center gap-4"><Package size={48} className="opacity-20"/><div>No crates selected.</div></div>
               ) : (
                 items.map((item) => (
-                  <div key={item._id || item.id} className="bg-white/5 p-4 rounded-xl border border-white/5 flex justify-between items-center">
-                    <div className="flex items-center gap-4">
-                      <img src={item.img} alt="mini" className="w-8 h-auto object-contain" />
-                      <div><div className="font-bold text-white">{item.size}</div><div className="text-xs text-cyan-400">{item.quantity} Crates</div></div>
+                  <div key={item._id || item.id} className="bg-white/5 p-4 rounded-xl border border-white/5 flex justify-between items-center pr-2">
+                    <div className="flex items-center gap-3">
+                      <img src={item.img} alt="mini" className="w-10 h-auto object-contain" />
+                      <div>
+                        <div className="font-bold text-white text-sm">{item.size}</div>
+                        <div className="text-xs text-cyan-400">{item.quantity} Crates</div>
+                      </div>
                     </div>
-                    <div className="text-right"><div className="text-white font-mono">₹{item.quantity * item.pricePerCrate}</div><div className="text-[9px] text-slate-500">{(item.quantity * item.crateSize)} Bottles</div></div>
+                    
+                    <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <div className="text-white font-mono text-sm">₹{item.quantity * item.pricePerCrate}</div>
+                          <div className="text-[9px] text-slate-500">{(item.quantity * item.crateSize)} Bottles</div>
+                        </div>
+                        <button 
+                            onClick={() => onUpdateCart(item, 0)}
+                            className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all shadow-lg hover:shadow-red-500/20"
+                            title="Remove Item"
+                        >
+                            <Trash2 size={16} />
+                        </button>
+                    </div>
                   </div>
                 ))
               )}
@@ -1368,8 +1384,8 @@ export default function App() {
         <section className="py-20 relative z-10">
           <div className="container mx-auto px-6 mb-12 flex justify-between items-end">
             <Reveal direction="left">
-               <h2 className="text-4xl md:text-7xl font-bold text-white tracking-tighter">Stock <span className="text-cyan-500">Order</span></h2>
-               <p className="text-slate-400 mt-2 text-sm">Select crates count for your shop/godown.</p>
+                <h2 className="text-4xl md:text-7xl font-bold text-white tracking-tighter">Stock <span className="text-cyan-500">Order</span></h2>
+                <p className="text-slate-400 mt-2 text-sm">Select crates count for your shop/godown.</p>
             </Reveal>
           </div>
           
@@ -1416,7 +1432,16 @@ export default function App() {
 
       {/* Global Overlays */}
       <MobileDock itemCount={getCartCount()} onOpenCart={() => setCartOpen(true)} onOpenMenu={() => setMenuOpen(true)} />
-      <CartDrawer isOpen={cartOpen} onClose={() => setCartOpen(false)} cart={cart} onCheckout={handleWhatsAppCheckout} />
+      
+      {/* Updated CartDrawer call with onUpdateCart prop */}
+      <CartDrawer 
+        isOpen={cartOpen} 
+        onClose={() => setCartOpen(false)} 
+        cart={cart} 
+        onUpdateCart={handleUpdateCart}
+        onCheckout={handleWhatsAppCheckout} 
+      />
+      
       <FullScreenMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} openPartner={() => { setMenuOpen(false); setPartnerOpen(true); }} />
       <PartnerModal isOpen={partnerOpen} onClose={() => setPartnerOpen(false)} />
       <LoginModal isOpen={loginOpen} onClose={() => setLoginOpen(false)} onLogin={handleLogin} />
