@@ -64,7 +64,6 @@ const DEFAULT_PRODUCTS = [
 // --- VISUAL MICRO-COMPONENTS ---
 
 const GrainOverlay = () => (
-  // Optimized: hidden on mobile to save battery/performance, visible on md+
   <div className="hidden md:block pointer-events-none fixed inset-0 z-[10] opacity-[0.04] mix-blend-overlay will-change-opacity" style={{ backgroundImage: NOISE_BG }} />
 );
 
@@ -221,7 +220,6 @@ const MobileDock = ({ itemCount, onOpenCart, onOpenMenu }) => {
 
 const ParallaxBottle = () => {
   const { scrollY } = useScroll();
-  // Optimized Physics for Mobile: Lower mass, Higher stiffness for instant tracking without "floaty lag"
   const smoothY = useSpring(scrollY, { 
     damping: 25, 
     stiffness: 120, 
@@ -237,7 +235,6 @@ const ParallaxBottle = () => {
       <BlurPatch className="w-[80vw] h-[80vw] bg-cyan-500/20 md:opacity-10" />
       <motion.div 
         style={{ y, rotate, scale, opacity }} 
-        // transform-gpu and will-change-transform are critical for mobile performance
         className="relative h-[65vh] md:h-[95vh] w-auto aspect-[1/3] z-20 will-change-transform transform-gpu"
       >
         <img 
@@ -440,9 +437,9 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
     );
 };
 
-// Dealer Create Modal
+// ✅ UPDATED: Dealer Create Modal (Matches Backend Model)
 const AddDealerModal = ({ isOpen, onClose, onSave }) => {
-  const [formData, setFormData] = useState({ name: '', location: '', phone: '', initialBalance: 0 });
+  const [formData, setFormData] = useState({ name: '', shopName: '', location: '', mobile: '', balance: 0 });
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e) => {
@@ -461,9 +458,10 @@ const AddDealerModal = ({ isOpen, onClose, onSave }) => {
                   <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }} className="bg-[#121212] border border-cyan-500/50 w-full max-w-sm rounded-2xl p-6 relative z-10 shadow-2xl">
                       <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2"><UserPlus size={20} className="text-cyan-500"/> Add New Dealer</h2>
                       <form onSubmit={handleSubmit} className="space-y-4">
-                          <input type="text" placeholder="Dealer / Shop Name" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none"/>
+                          <input type="text" placeholder="Owner Name" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none"/>
+                          <input type="text" placeholder="Shop / Agency Name" required value={formData.shopName} onChange={e => setFormData({...formData, shopName: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none"/>
                           <input type="text" placeholder="Location" required value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none"/>
-                          <input type="tel" placeholder="Phone Number" required value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none"/>
+                          <input type="tel" placeholder="Mobile Number" required value={formData.mobile} onChange={e => setFormData({...formData, mobile: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none"/>
                           <div className="flex gap-3 pt-2">
                               <button type="button" onClick={onClose} className="flex-1 py-3 bg-white/5 text-gray-400 font-bold uppercase rounded-xl hover:bg-white/10 transition-colors">Cancel</button>
                               <button type="submit" disabled={submitting} className="flex-1 bg-cyan-600 text-white font-bold uppercase py-3 rounded-xl hover:bg-cyan-500 transition-colors">
@@ -534,13 +532,11 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
       setShowProductModal(true);
   };
 
-  // --- AUTOMATED INVENTORY FILL ---
   const handleSyncDefaults = async () => {
       if(window.confirm("Auto-fill inventory with 3 Standard Products (1L, 20L, 200ml)?")) {
           setLoadingAction('sync');
-          // Loop through the specific default data defined at the top
           for(const p of DEFAULT_PRODUCTS) {
-              const { id, ...prodData } = p; // Remove 'temp_id' so DB creates real ID
+              const { id, ...prodData } = p;
               await onSaveProduct(prodData);
           }
           setLoadingAction(null);
@@ -936,6 +932,7 @@ const FeatureTile = ({ icon: Icon, title, desc, delay }) => (
   </Reveal>
 );
 
+// ✅ ADDED: SplashLoader (Previously Missing)
 const SplashLoader = () => (
     <div className="fixed inset-0 bg-slate-950 z-[100] flex items-center justify-center">
       <div className="flex flex-col items-center relative">
