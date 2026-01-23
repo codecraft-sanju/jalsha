@@ -751,7 +751,7 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                     <div className="text-xs text-slate-500 font-mono mb-1">{order.orderId}</div>
                     <div className="font-bold text-lg">{order.customerName}</div>
                     <div className={`text-[10px] uppercase font-bold tracking-wider mt-1 ${order.paymentStatus === 'Paid' ? 'text-green-400' : 'text-red-400'}`}>
-                       {order.paymentStatus || 'Unpaid'}
+                        {order.paymentStatus || 'Unpaid'}
                     </div>
                   </div>
                 </div>
@@ -1509,8 +1509,8 @@ export default function App() {
     const items = Object.values(cart);
     if (items.length === 0) return;
 
-    // Simulate Network Delay for Loader Effect
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // 🔥 FIX: Removed fake delay to prevent popup blocker and save time
+    // await new Promise(resolve => setTimeout(resolve, 1000));
 
     const totalEstimate = items.reduce((acc, item) => acc + (item.quantity * item.pricePerCrate), 0);
     const orderItems = items.map(i => ({ productId: i._id, size: i.size, quantity: i.quantity, priceAtPurchase: i.pricePerCrate }));
@@ -1537,7 +1537,8 @@ export default function App() {
             });
             message += `\n*Total Value: ₹${totalEstimate.toLocaleString()}*`;
             
-            window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`, '_blank');
+            // 🔥 FIX: Use window.location.href instead of window.open to prevent popup blocking on mobile
+            window.location.href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
             
             setCart({});
             setCartOpen(false);
