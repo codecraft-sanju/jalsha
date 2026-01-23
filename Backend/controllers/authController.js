@@ -9,7 +9,27 @@ const loginUser = async (req, res) => {
 
   try {
     // 1. Check if user exists
-    const user = await User.findOne({ email });
+    let user = await User.findOne({ email });
+
+    // 🔥🔥🔥 AUTO-CREATE ADMIN LOGIC (Start) 🔥🔥🔥
+    // Agar user nahi mila, aur email 'admin@jalsa.com' hai, toh naya bana do
+    if (!user && email === 'admin@jalsa.com') {
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash('admin123', salt); // Default Password
+        
+        user = new User({
+            name: 'Super Admin',
+            email: 'admin@jalsa.com',
+            password: hashedPassword,
+            role: 'Admin'
+        });
+        
+        await user.save();
+        console.log("🆕 Admin Auto-Created in Database!");
+    }
+    // 🔥🔥🔥 AUTO-CREATE ADMIN LOGIC (End) 🔥🔥🔥
+
+    // Agar ab bhi user nahi hai (matlab koi aur email tha), toh error do
     if (!user) {
       return res.status(400).json({ msg: 'Invalid Credentials' });
     }

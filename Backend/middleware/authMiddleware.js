@@ -13,16 +13,10 @@ const verifyAdmin = (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // 🔥 CHANGE: 'req.admin' ki jagah 'req.user' karein
-    // Kyunki humne token banate waqt payload me { user: ... } rakha tha
+    // 🔥 Correct: 'req.user' set kar rahe hain jo controller me match karega
     req.user = decoded.user; 
     
-    // Optional: Check karein ki user sach me Admin hai ya nahi
-    // if (req.user.role !== 'admin' && req.user.role !== 'Admin') {
-    //    return res.status(403).json({ msg: 'Access denied. Admins only.' });
-    // }
-
-    next(); // Aage badho (Controller ke paas jao)
+    next(); // Aage badho
   } catch (err) {
     res.status(401).json({ msg: 'Token is not valid' });
   }
