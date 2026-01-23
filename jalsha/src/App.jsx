@@ -16,7 +16,7 @@ import {
   Phone, Mail, MapPin, Award, Users, Clock,
   LayoutDashboard, Settings, LogOut, CheckCircle, AlertCircle,
   BookOpen, Plus, Minus, Wallet, Lock, Loader2, Edit, Save, Trash2, Search,
-  UploadCloud, UserPlus, Power, BadgePercent, FileText, MessageCircle
+  UploadCloud, UserPlus, Power, BadgePercent, FileText, MessageCircle, User
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { Toaster, toast } from 'react-hot-toast';
@@ -183,16 +183,26 @@ const FloatingBubbles = () => {
 
 // --- CUSTOMER UI COMPONENTS ---
 
-const MobileDock = ({ itemCount, onOpenCart, onOpenMenu }) => {
+// ✅ IMPROVED MOBILE DOCK: Now includes User/Profile Button
+const MobileDock = ({ itemCount, onOpenCart, onOpenMenu, onOpenDashboard }) => {
   return (
     <motion.div 
       initial={{ y: 100 }} animate={{ y: 0 }} transition={{ delay: 1, type: "spring" }}
-      className="fixed bottom-6 left-4 right-4 h-16 bg-slate-900/90 backdrop-blur-xl border border-white/10 rounded-2xl z-[50] flex items-center justify-between px-8 shadow-2xl shadow-black/80 md:hidden"
+      className="fixed bottom-6 left-4 right-4 h-16 bg-slate-900/90 backdrop-blur-xl border border-white/10 rounded-2xl z-[50] flex items-center justify-between px-6 shadow-2xl shadow-black/80 md:hidden"
     >
-      <button onClick={onOpenMenu} className="text-white/60 hover:text-cyan-400 transition-colors">
-        <Menu size={24} />
-      </button>
+      {/* Left Side: Menu & User */}
+      <div className="flex items-center gap-6">
+          <button onClick={onOpenMenu} className="text-white/60 hover:text-cyan-400 transition-colors flex flex-col items-center gap-1">
+            <Menu size={22} />
+          </button>
+          
+          <button onClick={onOpenDashboard} className="text-white/60 hover:text-cyan-400 transition-colors flex flex-col items-center gap-1 relative">
+            <User size={22} />
+            {/* Small indicator dot if logged in? Can be added later */}
+          </button>
+      </div>
       
+      {/* Center: Home/Scroll Top */}
       <div className="absolute left-1/2 -translate-x-1/2 -top-6">
         <motion.button 
           whileTap={{ scale: 0.9 }}
@@ -203,14 +213,17 @@ const MobileDock = ({ itemCount, onOpenCart, onOpenMenu }) => {
         </motion.button>
       </div>
 
-      <button onClick={onOpenCart} className="relative text-white/60 hover:text-cyan-400 transition-colors">
-        <Package size={24} />
-        {itemCount > 0 && (
-          <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[10px] flex items-center justify-center text-white font-bold animate-pulse shadow-lg">
-            {itemCount}
-          </span>
-        )}
-      </button>
+      {/* Right Side: Cart */}
+      <div className="flex items-center justify-end">
+          <button onClick={onOpenCart} className="relative text-white/60 hover:text-cyan-400 transition-colors flex flex-col items-center gap-1">
+            <Package size={24} />
+            {itemCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[10px] flex items-center justify-center text-white font-bold animate-pulse shadow-lg">
+                {itemCount}
+              </span>
+            )}
+          </button>
+      </div>
     </motion.div>
   );
 };
@@ -1196,13 +1209,13 @@ const PartnerModal = ({ isOpen, onClose }) => {
             const response = await fetch(`${API_URL}/api/applications`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: form.name,
-                    shopName: form.shop,
-                    mobile: form.mobile,
-                    city: form.city,
+                body: JSON.stringify({ 
+                    name: form.name, 
+                    shopName: form.shop, 
+                    mobile: form.mobile, 
+                    city: form.city, 
                     volume: form.volume,
-                    gstin: form.gstin
+                    gstin: form.gstin 
                 })
             });
 
@@ -1339,7 +1352,13 @@ const CustomerDashboard = ({ isOpen, onClose }) => {
       {isOpen && (
         <>
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/90 backdrop-blur-md z-[90]" />
-          <motion.div initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ type: "spring", damping: 25 }} className="fixed right-0 top-0 h-full w-full max-w-md bg-slate-950 border-l border-white/10 z-[95] flex flex-col shadow-2xl">
+          <motion.div 
+            initial={{ x: "100%" }} 
+            animate={{ x: 0 }} 
+            exit={{ x: "100%" }} 
+            transition={{ type: "spring", damping: 25 }} 
+            className="fixed right-0 top-0 h-full w-full md:max-w-md bg-slate-950 border-l border-white/10 z-[95] flex flex-col shadow-2xl"
+          >
             
             {/* Header */}
             <div className="p-6 border-b border-white/10 flex justify-between items-center bg-slate-900">
@@ -1429,25 +1448,25 @@ const CustomerDashboard = ({ isOpen, onClose }) => {
 
                       {/* APPLICATIONS TAB */}
                       {activeTab === 'applications' && (
-                         <>
-                          {myApps.length === 0 && <div className="text-center text-slate-500 py-10">No applications found.</div>}
-                          {myApps.map((app) => (
-                            <div key={app._id} className="bg-slate-900 p-4 rounded-xl border border-white/5">
-                               <div className="flex justify-between items-center mb-2">
-                                  <h4 className="font-bold text-white">{app.shopName}</h4>
-                                  <span className={`text-[10px] px-2 py-1 rounded font-bold uppercase ${
-                                    app.status === 'Approved' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'
-                                  }`}>
-                                    {app.status || 'Under Review'}
-                                  </span>
-                               </div>
-                               <div className="text-xs text-slate-400">
-                                 <p>Applied for: {app.volume}</p>
-                                 <p>Location: {app.city}</p>
-                               </div>
-                            </div>
-                          ))}
-                         </>
+                          <>
+                           {myApps.length === 0 && <div className="text-center text-slate-500 py-10">No applications found.</div>}
+                           {myApps.map((app) => (
+                             <div key={app._id} className="bg-slate-900 p-4 rounded-xl border border-white/5">
+                                <div className="flex justify-between items-center mb-2">
+                                   <h4 className="font-bold text-white">{app.shopName}</h4>
+                                   <span className={`text-[10px] px-2 py-1 rounded font-bold uppercase ${
+                                     app.status === 'Approved' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'
+                                   }`}>
+                                     {app.status || 'Under Review'}
+                                   </span>
+                                </div>
+                                <div className="text-xs text-slate-400">
+                                  <p>Applied for: {app.volume}</p>
+                                  <p>Location: {app.city}</p>
+                                </div>
+                             </div>
+                           ))}
+                          </>
                       )}
                     </>
                   )}
@@ -1945,7 +1964,13 @@ export default function App() {
         </main>
 
         {/* Global Overlays */}
-        <MobileDock itemCount={getCartCount()} onOpenCart={() => setCartOpen(true)} onOpenMenu={() => setMenuOpen(true)} />
+        {/* 🔥 UPDATED: Added handler for opening dashboard from mobile dock */}
+        <MobileDock 
+          itemCount={getCartCount()} 
+          onOpenCart={() => setCartOpen(true)} 
+          onOpenMenu={() => setMenuOpen(true)} 
+          onOpenDashboard={() => setDashboardOpen(true)}
+        />
         
         <CartDrawer 
             isOpen={cartOpen} 
