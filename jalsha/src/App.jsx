@@ -16,7 +16,7 @@ import {
   Phone, Mail, MapPin, Award, Users, Clock,
   LayoutDashboard, Settings, LogOut, CheckCircle, AlertCircle,
   BookOpen, Plus, Minus, Wallet, Lock, Loader2, Edit, Save, Trash2, Search,
-  UploadCloud, UserPlus, Power, BadgePercent, FileText
+  UploadCloud, UserPlus, Power, BadgePercent, FileText, MessageCircle
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { Toaster, toast } from 'react-hot-toast';
@@ -519,6 +519,14 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
   const [showDealerModal, setShowDealerModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   
+  // 🔥 New State for Applications
+  const [applications, setApplications] = useState([]);
+
+  // Fetch Token directly inside AdminView if possible or use prop. 
+  // NOTE: Ideally token should be passed as prop to avoid localStorage direct access here, 
+  // but for quick fix within single file structure:
+  const token = localStorage.getItem('adminToken');
+
   const safeOrders = Array.isArray(orders) ? orders : [];
   const safeDealers = Array.isArray(dealers) ? dealers : [];
 
@@ -558,7 +566,7 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
       setLoadingAction(null);
   };
 
-  // ✅ UPDATED: Handle Payment (Send 'Credit' to backend)
+  // Handle Payment (Send 'Credit' to backend)
   const handleDealerPay = async (id) => {
     const amount = prompt("Enter payment amount received (₹):");
     if (amount) {
@@ -574,6 +582,62 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
           await onDeleteProduct(id);
       }
   }
+
+  // --- NEW: APPLICATION LOGIC ---
+  const fetchApplications = async () => {
+      try {
+          const res = await fetch(`${API_URL}/api/applications`, { headers: { 'x-auth-token': token } });
+          const data = await res.json();
+          setApplications(Array.isArray(data) ? data : []);
+      } catch (err) { console.error("App Fetch Error", err); }
+  };
+
+  // Jab "Requests" tab active ho tab fetch karo
+  useEffect(() => {
+      if (activeTab === 'requests') {
+          fetchApplications();
+      }
+  }, [activeTab]);
+
+  const handleApproveApplication = async (app) => {
+      if(!window.confirm(`Approve ${app.name} as a Dealer?`)) return;
+      
+      setLoadingAction(app._id);
+      try {
+          // 1. Create Dealer from Application Data
+          const dealerRes = await fetch(`${API_URL}/api/dealers`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'x-auth-token': token }, 
+              body: JSON.stringify({
+                  name: app.name,
+                  shopName: app.shopName,
+                  location: app.city,
+                  mobile: app.mobile,
+                  gstin: app.gstin || "" 
+              })
+          });
+
+          if (dealerRes.ok) {
+              // 2. Update Application Status to 'Approved'
+              await fetch(`${API_URL}/api/applications/${app._id}`, {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json', 'x-auth-token': token },
+                  body: JSON.stringify({ status: 'Approved' })
+              });
+              
+              toast.success("Dealer Created & Request Approved!");
+              fetchApplications(); // Refresh list
+              // Trigger a global dealer refresh via props function would be ideal, 
+              // but for now user has to go to Dealer tab to refresh or use socket.
+          } else {
+              throw new Error("Failed to create dealer");
+          }
+      } catch (err) {
+          toast.error(err.message);
+      } finally {
+          setLoadingAction(null);
+      }
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 pb-24 text-slate-100 font-sans">
@@ -836,6 +900,74 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
            </motion.div>
         )}
 
+        {/* REQUESTS / LEADS TAB - NEW FEATURE ADDED */}
+        {activeTab === 'requests' && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                    <UserPlus className="text-cyan-500"/> New Applications
+                </h2>
+                
+                {applications.length === 0 && (
+                    <div className="text-center py-10 bg-slate-900 rounded-xl border border-white/5 border-dashed">
+                        <p className="text-slate-500 text-sm">No new requests pending.</p>
+                    </div>
+                )}
+
+                {applications.map((app, i) => (
+                    <motion.div 
+                        key={app._id} 
+                        initial={{ y: 20, opacity: 0 }} 
+                        animate={{ y: 0, opacity: 1 }} 
+                        transition={{ delay: i * 0.1 }} 
+                        className={`p-5 rounded-2xl border relative ${
+                            app.status === 'Approved' 
+                            ? 'bg-slate-900/50 border-green-500/20 opacity-60' 
+                            : 'bg-slate-900 border-white/10'
+                        }`}
+                    >
+                        <div className="flex justify-between items-start mb-2">
+                            <div>
+                                <div className="font-bold text-lg text-white">{app.shopName}</div>
+                                <div className="text-xs text-cyan-400 font-bold uppercase tracking-wider">{app.name}</div>
+                            </div>
+                            <div className={`px-2 py-1 rounded text-[10px] uppercase font-bold ${
+                                app.status === 'Approved' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'
+                            }`}>
+                                {app.status || 'New'}
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-xs text-slate-400 mb-4 bg-black/20 p-3 rounded-lg">
+                            <div>📱 {app.mobile}</div>
+                            <div>📍 {app.city}</div>
+                            <div className="col-span-2">📦 Potential: <span className="text-white">{app.volume}</span></div>
+                            {app.gstin && <div className="col-span-2">🧾 GST: {app.gstin}</div>}
+                        </div>
+
+                        {app.status !== 'Approved' && (
+                            <div className="flex gap-3">
+                                <a 
+                                    href={`https://wa.me/91${app.mobile}`} 
+                                    target="_blank" 
+                                    rel="noreferrer"
+                                    className="flex-1 py-2 bg-white/5 text-white text-xs font-bold uppercase rounded-lg hover:bg-white/10 flex items-center justify-center gap-2"
+                                >
+                                    <MessageCircle size={14}/> Chat
+                                </a>
+                                <button 
+                                    onClick={() => handleApproveApplication(app)}
+                                    disabled={loadingAction === app._id}
+                                    className="flex-1 py-2 bg-cyan-600 text-white text-xs font-bold uppercase rounded-lg hover:bg-cyan-500 flex items-center justify-center gap-2"
+                                >
+                                    {loadingAction === app._id ? <Spinner size={12}/> : <><CheckCircle size={14}/> Approve</>}
+                                </button>
+                            </div>
+                        )}
+                    </motion.div>
+                ))}
+            </motion.div>
+        )}
+
         {/* SETTINGS */}
         {activeTab === 'settings' && (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
@@ -876,6 +1008,7 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
         <NavButton icon={Package} label="Orders" active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} count={pendingCount} />
         <NavButton icon={Layers} label="Stock" active={activeTab === 'stock'} onClick={() => setActiveTab('stock')} />
         <NavButton icon={BookOpen} label="Khata" active={activeTab === 'credit'} onClick={() => setActiveTab('credit')} />
+        <NavButton icon={FileText} label="Requests" active={activeTab === 'requests'} onClick={() => setActiveTab('requests')} />
         <NavButton icon={Settings} label="Config" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
       </div>
     </div>
@@ -1044,11 +1177,16 @@ const FullScreenMenu = ({ isOpen, onClose, openPartner }) => (
 const PartnerModal = ({ isOpen, onClose }) => {
     const [submitting, setSubmitting] = useState(false);
     const [success, setSuccess] = useState(false);
-    const [form, setForm] = useState({ name: '', shop: '', mobile: '', city: '', volume: '100 - 500 Crates' });
+    const [form, setForm] = useState({ name: '', shop: '', mobile: '', city: '', volume: '100 - 500 Crates', gstin: '' });
 
     const handleSubmit = async () => {
         if(!form.name || !form.mobile) {
             toast.error("Name and Mobile are required");
+            return;
+        }
+        // Basic Mobile Validation
+        if(!/^\d{10}$/.test(form.mobile)) {
+            toast.error("Invalid Mobile Number (10 digits required)");
             return;
         }
 
@@ -1063,7 +1201,8 @@ const PartnerModal = ({ isOpen, onClose }) => {
                     shopName: form.shop,
                     mobile: form.mobile,
                     city: form.city,
-                    volume: form.volume
+                    volume: form.volume,
+                    gstin: form.gstin
                 })
             });
 
@@ -1084,7 +1223,7 @@ const PartnerModal = ({ isOpen, onClose }) => {
                  setSuccess(false);
                  onClose();
                  // Reset Form
-                 setForm({ name: '', shop: '', mobile: '', city: '', volume: '100 - 500 Crates' });
+                 setForm({ name: '', shop: '', mobile: '', city: '', volume: '100 - 500 Crates', gstin: '' });
             }, 2500);
 
         } catch (error) {
@@ -1119,6 +1258,7 @@ const PartnerModal = ({ isOpen, onClose }) => {
                       <input type="text" placeholder="Owner Full Name" value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-cyan-500 outline-none" />
                       <input type="text" placeholder="Shop / Agency Name" value={form.shop} onChange={e => setForm({...form, shop: e.target.value})} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-cyan-500 outline-none" />
                       <div className="flex gap-4"><input type="tel" placeholder="Mobile" value={form.mobile} onChange={e => setForm({...form, mobile: e.target.value})} className="w-1/2 bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-cyan-500 outline-none" /><input type="text" placeholder="Area / City" value={form.city} onChange={e => setForm({...form, city: e.target.value})} className="w-1/2 bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-cyan-500 outline-none" /></div>
+                      <input type="text" placeholder="GST Number (Optional)" value={form.gstin} onChange={e => setForm({...form, gstin: e.target.value})} className="w-full bg-slate-800 border border-slate-700 rounded-xl p-4 text-white focus:border-cyan-500 outline-none" />
                       <div className="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
                         <label className="text-slate-400 text-xs uppercase tracking-wider mb-2 block">Expected Monthly Offtake</label>
                         <select value={form.volume} onChange={e => setForm({...form, volume: e.target.value})} className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white outline-none">
