@@ -1,44 +1,46 @@
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
+const User = require('../models/User');
 
-// @desc    Auth Admin & Get Token
+// @desc    Login User (Admin/Manager/Driver)
 // @route   POST /api/auth/login
-// @access  Public
-const loginAdmin = (req, res) => {
+const loginUser = async (req, res) => {
   const { email, password } = req.body;
 
-  // 1. Validate request
-  if (!email || !password) {
-    return res.status(400).json({ msg: 'Please enter all fields' });
-  }
+  try {
+    // 1. Check if user exists
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ msg: 'Invalid Credentials' });
+    }
 
-  // 2. Check credentials from .env
-  if (email === process.env.ADMIN_EMAIL && password === process.env.ADMIN_PASS) {
-    
-    // 3. Create JWT Payload
+    // 2. Check Password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ msg: 'Invalid Credentials' });
+    }
+
+    // 3. Create Token with Role
     const payload = {
       user: {
-        role: 'admin'
+        id: user._id,
+        role: user.role // 'Admin', 'Manager', etc.
       }
     };
 
-    // 4. Sign Token
     jwt.sign(
       payload,
       process.env.JWT_SECRET,
-      { expiresIn: '24h' }, 
+      { expiresIn: '24h' },
       (err, token) => {
         if (err) throw err;
-        res.json({ 
-            token, 
-            msg: 'Admin Login Successful' 
-        });
+        res.json({ token, user: { id: user._id, name: user.name, role: user.role } });
       }
     );
-  } else {
-    return res.status(400).json({ msg: 'Invalid Credentials' });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
   }
 };
 
-module.exports = {
-  loginAdmin
-};
+module.exports = { loginUser };

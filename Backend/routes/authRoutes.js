@@ -1,8 +1,12 @@
+// authRoutes.js
 const express = require('express');
 const router = express.Router();
-const { loginAdmin } = require('../controllers/authController');
+
+// 🔥 CHANGE: 'loginAdmin' ki jagah 'loginUser' import karein
+const { loginUser } = require('../controllers/authController');
 
 // POST /api/auth/login
-router.post('/login', loginAdmin);
+// 🔥 CHANGE: Yahan bhi 'loginUser' lagayein
+router.post('/login', loginUser);
 
 module.exports = router;

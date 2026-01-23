@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   motion, 
   AnimatePresence, 
@@ -6,7 +6,7 @@ import {
   useTransform, 
   useSpring, 
 } from 'framer-motion';
-// Fixed: Using core Lenis directly instead of the wrapper library to avoid React 19 conflicts
+// Fixed: Using core Lenis directly to avoid React 19 conflicts
 import Lenis from 'lenis';
 import { 
   Droplets, X, Menu, 
@@ -16,7 +16,7 @@ import {
   Phone, Mail, MapPin, Award, Users, Clock,
   LayoutDashboard, Settings, LogOut, CheckCircle, AlertCircle,
   BookOpen, Plus, Minus, Wallet, Lock, Loader2, Edit, Save, Trash2, Search,
-  UploadCloud, UserPlus, Power, BadgePercent
+  UploadCloud, UserPlus, Power, BadgePercent, FileText
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { Toaster, toast } from 'react-hot-toast';
@@ -27,33 +27,30 @@ const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER || "919867165845";
 
 const NOISE_BG = "url('https://grainy-gradients.vercel.app/noise.svg')";
 
-// --- AUTO-FILL DATA (Used for "Initialize Inventory" Action) ---
+// --- AUTO-FILL DATA (Used ONLY for "Initialize Inventory" Action) ---
 const DEFAULT_PRODUCTS = [
   {
-    id: 'temp_1',
     size: '1 Litre Bottle',
     pricePerCrate: 140,
-    stock: 100, // Initial Stock
+    stock: 100, 
     crateSize: 12,
     img: './1litre.png',
     desc: 'Premium packaged drinking water. Standard retail bottle.',
     tag: 'Best Seller'
   },
   {
-    id: 'temp_2',
     size: '20 Litre Jar',
     pricePerCrate: 40,
-    stock: 50, // Initial Stock
+    stock: 50, 
     crateSize: 1,
     img: './20litre.png',
     desc: 'Heavy duty chilled jars for corporate and home use.',
     tag: 'Bulk Only'
   },
   {
-    id: 'temp_3',
     size: '200ml Mini',
     pricePerCrate: 120,
-    stock: 200, // Initial Stock
+    stock: 200, 
     crateSize: 48,
     img: './200litre.png',
     desc: 'Pocket size pouches/bottles. Ideal for weddings and events.',
@@ -250,7 +247,8 @@ const ParallaxBottle = () => {
 const ProductCard = ({ p, onUpdateCart, cartItem, index }) => {
   const quantity = cartItem ? cartItem.quantity : 0;
   const isOutOfStock = p.stock <= 0;
-  const isLowStock = p.stock < 50;
+  // Use backend 'lowStockThreshold' if available, else default to 50
+  const isLowStock = p.stock < (p.lowStockThreshold || 50);
 
   const handleIncrement = () => {
     if (quantity < p.stock) {
@@ -356,7 +354,8 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
         crateSize: '',
         img: '',
         desc: '',
-        tag: ''
+        tag: '',
+        lowStockThreshold: '50'
     });
     const [submitting, setSubmitting] = useState(false);
 
@@ -364,7 +363,7 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
         if (product) {
             setFormData(product);
         } else {
-            setFormData({ size: '', pricePerCrate: '', stock: '0', crateSize: '12', img: './1litre.png', desc: '', tag: '' });
+            setFormData({ size: '', pricePerCrate: '', stock: '0', crateSize: '12', img: './1litre.png', desc: '', tag: '', lowStockThreshold: '50' });
         }
     }, [product]);
 
@@ -406,13 +405,16 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
                                     <input type="number" placeholder="Qty" value={formData.crateSize} onChange={e => setFormData({...formData, crateSize: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none mt-1"/>
                                 </div>
                                 <div>
-                                    <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Tag (Optional)</label>
-                                    <input type="text" placeholder="e.g. Best Seller" value={formData.tag} onChange={e => setFormData({...formData, tag: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none mt-1"/>
+                                    <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Low Stock Alert</label>
+                                    <input type="number" placeholder="e.g. 50" value={formData.lowStockThreshold} onChange={e => setFormData({...formData, lowStockThreshold: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none mt-1"/>
                                 </div>
                             </div>
                             <div>
-                                <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Image URL</label>
-                                <input type="text" placeholder="Image Path (e.g. ./1litre.png)" value={formData.img} onChange={e => setFormData({...formData, img: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none text-xs mt-1"/>
+                                <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Tag & Image</label>
+                                <div className="grid grid-cols-2 gap-4 mt-1">
+                                    <input type="text" placeholder="Tag (e.g. Best Seller)" value={formData.tag} onChange={e => setFormData({...formData, tag: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none"/>
+                                    <input type="text" placeholder="Image URL (e.g. ./1litre.png)" value={formData.img} onChange={e => setFormData({...formData, img: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none"/>
+                                </div>
                             </div>
                             <div>
                                 <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Description</label>
@@ -437,9 +439,9 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
     );
 };
 
-// ✅ UPDATED: Dealer Create Modal (Matches Backend Model)
+// ✅ UPDATED: Dealer Create Modal (Matches Advanced Backend Model)
 const AddDealerModal = ({ isOpen, onClose, onSave }) => {
-  const [formData, setFormData] = useState({ name: '', shopName: '', location: '', mobile: '', balance: 0 });
+  const [formData, setFormData] = useState({ name: '', shopName: '', location: '', mobile: '', gstin: '' });
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e) => {
@@ -462,6 +464,7 @@ const AddDealerModal = ({ isOpen, onClose, onSave }) => {
                           <input type="text" placeholder="Shop / Agency Name" required value={formData.shopName} onChange={e => setFormData({...formData, shopName: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none"/>
                           <input type="text" placeholder="Location" required value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none"/>
                           <input type="tel" placeholder="Mobile Number" required value={formData.mobile} onChange={e => setFormData({...formData, mobile: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none"/>
+                          <input type="text" placeholder="GST Number (Optional)" value={formData.gstin} onChange={e => setFormData({...formData, gstin: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none"/>
                           <div className="flex gap-3 pt-2">
                               <button type="button" onClick={onClose} className="flex-1 py-3 bg-white/5 text-gray-400 font-bold uppercase rounded-xl hover:bg-white/10 transition-colors">Cancel</button>
                               <button type="submit" disabled={submitting} className="flex-1 bg-cyan-600 text-white font-bold uppercase py-3 rounded-xl hover:bg-cyan-500 transition-colors">
@@ -536,8 +539,7 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
       if(window.confirm("Auto-fill inventory with 3 Standard Products (1L, 20L, 200ml)?")) {
           setLoadingAction('sync');
           for(const p of DEFAULT_PRODUCTS) {
-              const { id, ...prodData } = p;
-              await onSaveProduct(prodData);
+              await onSaveProduct(p);
           }
           setLoadingAction(null);
           toast.success("Inventory Auto-filled!");
@@ -556,11 +558,13 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
       setLoadingAction(null);
   };
 
+  // ✅ UPDATED: Handle Payment (Send 'Credit' to backend)
   const handleDealerPay = async (id) => {
     const amount = prompt("Enter payment amount received (₹):");
     if (amount) {
       setLoadingAction(id);
-      await onDealerUpdate(id, amount, 'payment');
+      // 'Credit' type means Money Received (reduces dealer balance)
+      await onDealerUpdate(id, amount, 'Credit', 'Cash Payment Received');
       setLoadingAction(null);
     }
   };
@@ -641,7 +645,6 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                     <div className="text-center py-10 bg-slate-900 rounded-xl border border-white/5 border-dashed">
                         <Package size={40} className="mx-auto text-slate-700 mb-2"/>
                         <p className="text-slate-500 text-sm">No products found.</p>
-                        <p className="text-slate-400 text-xs mt-2">Click "Auto-Fill" above to load standard items.</p>
                     </div>
                 ) : (
                     products.map((p, i) => (
@@ -651,9 +654,9 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                         </div>
                         <div className="flex-1">
                             <div className="font-bold">{p.size}</div>
-                            <div className="text-xs text-slate-500">Capacity: {p.crateSize} units/crate</div>
+                            <div className="text-xs text-slate-500">Stock: {p.stock}</div>
                         </div>
-                        <div className={`text-sm font-bold ${p.stock < 50 ? 'text-red-400' : 'text-green-400'}`}>
+                        <div className={`text-sm font-bold ${p.stock < (p.lowStockThreshold || 50) ? 'text-red-400' : 'text-green-400'}`}>
                             {p.stock} Crates
                         </div>
                     </motion.div>
@@ -683,13 +686,16 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                   <div>
                     <div className="text-xs text-slate-500 font-mono mb-1">{order.orderId}</div>
                     <div className="font-bold text-lg">{order.customerName}</div>
+                    <div className={`text-[10px] uppercase font-bold tracking-wider mt-1 ${order.paymentStatus === 'Paid' ? 'text-green-400' : 'text-red-400'}`}>
+                       {order.paymentStatus || 'Unpaid'}
+                    </div>
                   </div>
                 </div>
                 
                 <div className="bg-white/5 p-3 rounded-lg mb-4 text-sm text-slate-300 space-y-1">
                   {order.items.map((item, idx) => (
                       <div key={idx} className="flex justify-between">
-                          <span>{item.quantity}x {item.size}</span>
+                          <span>{item.quantity}x {item.size || item.productName}</span>
                       </div>
                   ))}
                   <div className="border-t border-white/10 pt-2 mt-2 flex justify-between font-bold text-white">
@@ -741,11 +747,11 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                     </div>
 
                     <div className="flex items-center gap-4">
-                       <img src={p.img || p.imageUrl} className="w-16 h-16 object-contain" alt="" />
-                       <div>
-                          <h3 className="text-lg font-bold">{p.size}</h3>
-                          <div className="text-xs text-slate-500">Price: ₹{p.pricePerCrate}</div>
-                       </div>
+                        <img src={p.img || p.imageUrl} className="w-16 h-16 object-contain" alt="" />
+                        <div>
+                           <h3 className="text-lg font-bold">{p.size}</h3>
+                           <div className="text-xs text-slate-500">Price: ₹{p.pricePerCrate}</div>
+                        </div>
                     </div>
                     
                     <div className="bg-black/40 p-2 rounded-xl flex items-center justify-between">
@@ -757,7 +763,7 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                           {loadingAction === p._id ? <Spinner size={12} /> : <Minus size={16}/>}
                        </motion.button>
                        <div className="text-center">
-                          <div className="text-2xl font-mono font-bold">{p.stock}</div>
+                          <div className={`text-2xl font-mono font-bold ${p.stock < (p.lowStockThreshold || 50) ? 'text-red-500' : 'text-white'}`}>{p.stock}</div>
                           <div className="text-[9px] uppercase tracking-widest text-slate-500">Crates Available</div>
                        </div>
                        <motion.button 
@@ -797,21 +803,23 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                  <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: i * 0.1 }} key={d._id || d.id} className="bg-slate-900 p-5 rounded-2xl border border-white/5 relative">
                     <div className="flex justify-between items-start mb-4">
                        <div>
-                          <div className="font-bold text-lg">{d.name}</div>
-                          <div className="text-xs text-slate-500 flex items-center gap-1">
+                          <div className="font-bold text-lg">{d.shopName}</div>
+                          <div className="text-xs text-slate-400">{d.name}</div>
+                          <div className="text-xs text-slate-500 flex items-center gap-1 mt-1">
                              <MapPin size={10} /> {d.location}
                           </div>
                        </div>
                        <div className="text-right">
-                          <div className={`font-mono font-bold text-xl ${d.balance < 0 ? 'text-red-400' : 'text-green-400'}`}>
-                             {d.balance < 0 ? `-₹${Math.abs(d.balance).toLocaleString()}` : `₹${d.balance}`}
+                          <div className={`font-mono font-bold text-xl ${d.balance > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                             {/* Positive Balance means Dealer owes us (Red/Debt) */}
+                             ₹{d.balance.toLocaleString()}
                           </div>
-                          <div className="text-[9px] uppercase tracking-widest text-slate-500">Balance</div>
+                          <div className="text-[9px] uppercase tracking-widest text-slate-500">Current Due</div>
                        </div>
                     </div>
                     
                     <div className="flex items-center justify-between bg-black/20 p-3 rounded-xl">
-                       <div className="text-xs text-slate-400">Last: <span className="text-white">{d.lastPaymentAmount ? `₹${d.lastPaymentAmount}` : 'N/A'}</span></div>
+                       <div className="text-xs text-slate-400">Last Paid: <span className="text-white">{d.lastPaymentAmount ? `₹${d.lastPaymentAmount}` : 'N/A'}</span></div>
                        <div className="w-32">
                          <AdminActionButton 
                             onClick={() => handleDealerPay(d._id)}
@@ -819,7 +827,7 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                             variant="outline"
                             className="py-2 text-xs uppercase"
                          >
-                            <Wallet size={12}/> Pay
+                            <Wallet size={12}/> Receive
                          </AdminActionButton>
                        </div>
                     </div>
@@ -857,14 +865,6 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                             </div>
                         </div>
                         <span className="font-mono text-cyan-400">₹0</span>
-                    </div>
-                </div>
-
-                <div className="bg-slate-900 p-5 rounded-2xl border border-white/5">
-                    <h3 className="text-sm font-bold uppercase tracking-widest text-slate-500 mb-4">Admin Profile</h3>
-                    <div className="space-y-4">
-                        <input type="password" placeholder="New Password" className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-sm outline-none"/>
-                        <button className="w-full bg-slate-800 text-white font-bold py-3 rounded-xl text-sm hover:bg-slate-700">Update Credentials</button>
                     </div>
                 </div>
             </motion.div>
@@ -1051,7 +1051,7 @@ const PartnerModal = ({ isOpen, onClose }) => {
         await new Promise(resolve => setTimeout(resolve, 1500));
         
         // WhatsApp Redirect
-        const message = `*New Dealership Application*\n\nName: ${form.name}\nShop: ${form.shop}\nMobile: ${form.phone}\nCity: ${form.city}\nVolume: ${form.volume}`;
+        const message = `*New Dealership Application*\n\nName: ${form.name}\nShop: ${form.shop}\nMobile: ${form.mobile}\nCity: ${form.city}\nVolume: ${form.volume}`;
         window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`, '_blank');
 
         setSubmitting(false);
@@ -1158,10 +1158,10 @@ export default function App() {
   const [loginOpen, setLoginOpen] = useState(false);
   const [token, setToken] = useState(localStorage.getItem('adminToken') || null);
 
-  // DYNAMIC DATA STATES - Initialized EMPTY for REAL feel
+  // DYNAMIC DATA STATES
   const [products, setProducts] = useState([]); 
   const [orders, setOrders] = useState([]);
-  const [dealers, setDealers] = useState([]); // Empty by default
+  const [dealers, setDealers] = useState([]); 
   
   const [cart, setCart] = useState(() => {
       try {
@@ -1177,15 +1177,13 @@ export default function App() {
 
   // --- LENIS SMOOTH SCROLL SETUP (Fixed for React 19) ---
   useEffect(() => {
-    // Initialize Lenis
     const lenis = new Lenis({
         duration: 1.5,
-        easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)), // Custom easing for "butter" feel
+        easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)), 
         smoothWheel: true,
         touchMultiplier: 2,
     });
 
-    // RAF Loop
     function raf(time) {
         lenis.raf(time);
         requestAnimationFrame(raf);
@@ -1193,7 +1191,6 @@ export default function App() {
 
     requestAnimationFrame(raf);
 
-    // Cleanup
     return () => {
         lenis.destroy();
     };
@@ -1208,15 +1205,14 @@ export default function App() {
     try {
         const res = await fetch(`${API_URL}/api/products`);
         const data = await res.json();
-        if (data && data.length > 0) {
+        if (data && Array.isArray(data)) {
             setProducts(data);
         } else {
-            // Keep empty if API fails to show "No Products" state initially
             setProducts([]);
         }
     } catch (err) { 
         console.error("API Error", err); 
-        setProducts([]); // Ensure it's empty if connection fails
+        setProducts([]); 
     }
   };
 
@@ -1250,32 +1246,37 @@ export default function App() {
              if(updatedProduct.deleted) {
                  return prev.filter(p => p._id !== updatedProduct._id);
              }
-             const exists = prev.find(p => p._id === updatedProduct._id || p.id === updatedProduct._id);
+             const exists = prev.find(p => p._id === updatedProduct._id);
              if (exists) {
-                 return prev.map(p => (p._id === updatedProduct._id || p.id === updatedProduct._id ? updatedProduct : p));
+                 return prev.map(p => (p._id === updatedProduct._id ? updatedProduct : p));
              }
              return [...prev, updatedProduct];
         });
     });
 
     newSocket.on('new_order', (newOrder) => {
-        setOrders(prev => [newOrder, ...prev]);
-        toast("New Order Received!", { icon: '📦' });
+        if(token) { // Only update orders if admin is logged in
+            setOrders(prev => [newOrder, ...prev]);
+            toast("New Order Received!", { icon: '📦' });
+        }
     });
 
     newSocket.on('order_status_updated', (updatedOrder) => {
-        setOrders(prev => prev.map(o => (o._id === updatedOrder._id ? updatedOrder : o)));
+        if(token) {
+            setOrders(prev => prev.map(o => (o._id === updatedOrder._id ? updatedOrder : o)));
+        }
     });
 
     newSocket.on('dealer_updated', (updatedDealer) => {
-        setDealers(prev => {
-             const exists = prev.find(d => d._id === updatedDealer._id);
-             if (exists) return prev.map(d => (d._id === updatedDealer._id ? updatedDealer : d));
-             return [...prev, updatedDealer];
-        });
+        if(token) {
+            setDealers(prev => {
+                 const exists = prev.find(d => d._id === updatedDealer._id);
+                 if (exists) return prev.map(d => (d._id === updatedDealer._id ? updatedDealer : d));
+                 return [...prev, updatedDealer];
+            });
+        }
     });
 
-    // Simulate initial loading time
     setTimeout(() => setLoading(false), 2000);
 
     return () => newSocket.disconnect();
@@ -1331,7 +1332,6 @@ export default function App() {
   };
 
   const getCartCount = () => Object.keys(cart).length;
-  const getCartTotalCrates = () => Object.values(cart).reduce((acc, item) => acc + item.quantity, 0);
 
   const handleWhatsAppCheckout = async () => {
     const items = Object.values(cart);
@@ -1341,14 +1341,14 @@ export default function App() {
     await new Promise(resolve => setTimeout(resolve, 1000));
 
     const totalEstimate = items.reduce((acc, item) => acc + (item.quantity * item.pricePerCrate), 0);
-    const orderItems = items.map(i => ({ productId: i._id || i.id, size: i.size, quantity: i.quantity, priceAtPurchase: i.pricePerCrate }));
+    const orderItems = items.map(i => ({ productId: i._id, size: i.size, quantity: i.quantity, priceAtPurchase: i.pricePerCrate }));
 
     try {
         const orderData = {
-            orderId: `#ORD-${Math.floor(Math.random() * 100000)}`,
-            customerName: "Web Inquiry User", 
+            customerName: "Web Customer", 
             items: orderItems,
-            totalAmount: totalEstimate
+            totalAmount: totalEstimate,
+            paymentStatus: "Unpaid"
         };
 
         const res = await fetch(`${API_URL}/api/orders`, {
@@ -1358,7 +1358,8 @@ export default function App() {
         });
 
         if(res.ok) {
-            let message = `*Wholesale Inquiry - जलsa Water*\n\nI have placed an order via website:\n`;
+            const savedOrder = await res.json();
+            let message = `*Wholesale Inquiry - जलsa Water*\n*Order ID:* ${savedOrder.orderId}\n\nI have placed an order via website:\n`;
             items.forEach(item => {
                 message += `🔹 ${item.size} x ${item.quantity} Crates\n`;
             });
@@ -1369,18 +1370,12 @@ export default function App() {
             setCart({});
             setCartOpen(false);
             toast.success("Order Placed Successfully!");
+        } else {
+            const err = await res.json();
+            toast.error(err.msg || "Stock issue or server error");
         }
     } catch (err) {
-        // If Backend Fails, still open WhatsApp
-        toast.error("Connecting to WhatsApp directly...");
-        let message = `*Wholesale Inquiry - जलsa Water*\n\nI have placed an order via website:\n`;
-        items.forEach(item => {
-            message += `🔹 ${item.size} x ${item.quantity} Crates\n`;
-        });
-        message += `\n*Total Value: ₹${totalEstimate.toLocaleString()}*`;
-        window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`, '_blank');
-        setCart({});
-        setCartOpen(false);
+        toast.error("Network Error. Please try again.");
     }
   };
 
@@ -1407,12 +1402,13 @@ export default function App() {
       } catch (err) { toast.error('Status update failed'); }
   };
 
-  const handleDealerTransaction = async (id, amount, type) => {
+  // ✅ UPDATED: Send Type & Description to match new Backend Controller
+  const handleDealerTransaction = async (id, amount, type, description) => {
       try {
           await fetch(`${API_URL}/api/dealers/${id}/transaction`, {
               method: 'PUT',
               headers: { 'Content-Type': 'application/json', 'x-auth-token': token },
-              body: JSON.stringify({ amount: Number(amount), type })
+              body: JSON.stringify({ amount: Number(amount), type, description })
           });
           toast.success("Transaction Recorded");
       } catch (err) { toast.error('Transaction failed'); }
@@ -1437,8 +1433,6 @@ export default function App() {
           fetchProducts();
           toast.success(productData._id ? "Product Updated" : "Product Created");
       } catch (err) {
-          // If API fails (no backend), we can't save. 
-          // For REAL mode without backend, we show error.
           toast.error("Database Connection Failed");
       }
   };
@@ -1469,10 +1463,7 @@ export default function App() {
               throw new Error('Failed');
           }
       } catch(err) {
-          // Fallback for demo if API fails
-          const newDealer = { ...dealerData, _id: Date.now().toString(), balance: 0, lastPaymentAmount: 0 };
-          setDealers(prev => [...prev, newDealer]);
-          toast.success("Dealer Added (Local Mode)");
+          toast.error("Failed to add dealer");
       }
   };
 
@@ -1501,7 +1492,6 @@ export default function App() {
 
   // RENDER: Customer View
   return (
-        // REMOVED THE WRAPPER, USING USEEFFECT HOOK ABOVE INSTEAD
         <div className="bg-slate-950 min-h-screen text-slate-200 font-sans overflow-x-hidden selection:bg-cyan-500/30">
         <Toaster position="bottom-center" toastOptions={{ style: { background: '#1e293b', color: '#fff', border: '1px solid #334155' }}} />
         <GrainOverlay />
