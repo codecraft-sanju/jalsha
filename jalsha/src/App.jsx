@@ -455,25 +455,25 @@ const AddDealerModal = ({ isOpen, onClose, onSave }) => {
   return (
       <AnimatePresence>
           {isOpen && (
-              <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-black/90 backdrop-blur-md" />
-                  <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }} className="bg-[#121212] border border-cyan-500/50 w-full max-w-sm rounded-2xl p-6 relative z-10 shadow-2xl">
-                      <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2"><UserPlus size={20} className="text-cyan-500"/> Add New Dealer</h2>
-                      <form onSubmit={handleSubmit} className="space-y-4">
-                          <input type="text" placeholder="Owner Name" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none"/>
-                          <input type="text" placeholder="Shop / Agency Name" required value={formData.shopName} onChange={e => setFormData({...formData, shopName: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none"/>
-                          <input type="text" placeholder="Location" required value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none"/>
-                          <input type="tel" placeholder="Mobile Number" required value={formData.mobile} onChange={e => setFormData({...formData, mobile: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none"/>
-                          <input type="text" placeholder="GST Number (Optional)" value={formData.gstin} onChange={e => setFormData({...formData, gstin: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none"/>
-                          <div className="flex gap-3 pt-2">
-                              <button type="button" onClick={onClose} className="flex-1 py-3 bg-white/5 text-gray-400 font-bold uppercase rounded-xl hover:bg-white/10 transition-colors">Cancel</button>
-                              <button type="submit" disabled={submitting} className="flex-1 bg-cyan-600 text-white font-bold uppercase py-3 rounded-xl hover:bg-cyan-500 transition-colors">
-                                  {submitting ? <Spinner size={16}/> : 'Add Dealer'}
-                              </button>
-                          </div>
-                      </form>
-                  </motion.div>
-              </div>
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-black/90 backdrop-blur-md" />
+                <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }} className="bg-[#121212] border border-cyan-500/50 w-full max-w-sm rounded-2xl p-6 relative z-10 shadow-2xl">
+                    <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2"><UserPlus size={20} className="text-cyan-500"/> Add New Dealer</h2>
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <input type="text" placeholder="Owner Name" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none"/>
+                        <input type="text" placeholder="Shop / Agency Name" required value={formData.shopName} onChange={e => setFormData({...formData, shopName: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none"/>
+                        <input type="text" placeholder="Location" required value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none"/>
+                        <input type="tel" placeholder="Mobile Number" required value={formData.mobile} onChange={e => setFormData({...formData, mobile: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none"/>
+                        <input type="text" placeholder="GST Number (Optional)" value={formData.gstin} onChange={e => setFormData({...formData, gstin: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none"/>
+                        <div className="flex gap-3 pt-2">
+                            <button type="button" onClick={onClose} className="flex-1 py-3 bg-white/5 text-gray-400 font-bold uppercase rounded-xl hover:bg-white/10 transition-colors">Cancel</button>
+                            <button type="submit" disabled={submitting} className="flex-1 bg-cyan-600 text-white font-bold uppercase py-3 rounded-xl hover:bg-cyan-500 transition-colors">
+                                {submitting ? <Spinner size={16}/> : 'Add Dealer'}
+                            </button>
+                        </div>
+                    </form>
+                </motion.div>
+            </div>
           )}
       </AnimatePresence>
   );
@@ -1278,6 +1278,196 @@ const PartnerModal = ({ isOpen, onClose }) => {
     );
 };
 
+// --- CUSTOMER DASHBOARD (NEW) ---
+const CustomerDashboard = ({ isOpen, onClose }) => {
+  const [mobile, setMobile] = useState(localStorage.getItem('jalsa_customer_mobile') || '');
+  const [isLoggedIn, setIsLoggedIn] = useState(!!localStorage.getItem('jalsa_customer_mobile'));
+  const [myOrders, setMyOrders] = useState([]);
+  const [myApps, setMyApps] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('orders'); // 'orders' or 'applications'
+
+  // Fetch Data based on Mobile Number
+  const fetchCustomerData = async (phone) => {
+    setLoading(true);
+    try {
+      // Fetch Orders
+      const orderRes = await fetch(`${API_URL}/api/orders?mobile=${phone}`);
+      const orderData = await orderRes.json();
+      if(Array.isArray(orderData)) setMyOrders(orderData);
+
+      // Fetch Applications
+      const appRes = await fetch(`${API_URL}/api/applications?mobile=${phone}`);
+      const appData = await appRes.json();
+      if(Array.isArray(appData)) setMyApps(appData);
+
+    } catch (err) {
+      console.error("Tracking Error", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && isLoggedIn && mobile) {
+      fetchCustomerData(mobile);
+    }
+  }, [isOpen, isLoggedIn]);
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    if (mobile.length === 10) {
+      localStorage.setItem('jalsa_customer_mobile', mobile);
+      setIsLoggedIn(true);
+      fetchCustomerData(mobile);
+      toast.success("Dashboard Loaded");
+    } else {
+      toast.error("Please enter valid 10-digit mobile");
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('jalsa_customer_mobile');
+    setIsLoggedIn(false);
+    setMobile('');
+    setMyOrders([]);
+    setMyApps([]);
+  };
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/90 backdrop-blur-md z-[90]" />
+          <motion.div initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ type: "spring", damping: 25 }} className="fixed right-0 top-0 h-full w-full max-w-md bg-slate-950 border-l border-white/10 z-[95] flex flex-col shadow-2xl">
+            
+            {/* Header */}
+            <div className="p-6 border-b border-white/10 flex justify-between items-center bg-slate-900">
+              <div>
+                <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                  <UserPlus size={20} className="text-cyan-500"/> My Account
+                </h2>
+                {isLoggedIn && <p className="text-xs text-slate-500 font-mono mt-1">+91 {mobile}</p>}
+              </div>
+              <button onClick={onClose} className="p-2 bg-white/5 rounded-full hover:bg-white/10 text-slate-400 hover:text-white transition-colors"><X size={20}/></button>
+            </div>
+
+            {/* Login View */}
+            {!isLoggedIn ? (
+              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
+                <div className="w-16 h-16 bg-cyan-500/10 rounded-full flex items-center justify-center text-cyan-400 mb-6">
+                  <Search size={32} />
+                </div>
+                <h3 className="text-2xl font-bold text-white mb-2">Track Your Orders</h3>
+                <p className="text-slate-400 mb-8 text-sm">Enter your registered mobile number to view order history and dealership status.</p>
+                
+                <form onSubmit={handleLogin} className="w-full space-y-4">
+                  <input 
+                    type="tel" 
+                    placeholder="Mobile Number (e.g. 9876543210)" 
+                    value={mobile} 
+                    onChange={e => setMobile(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-800 rounded-xl p-4 text-white text-center text-lg tracking-widest outline-none focus:border-cyan-500 transition-colors"
+                  />
+                  <LuxuryButton primary className="w-full justify-center" onClick={handleLogin}>View Dashboard</LuxuryButton>
+                </form>
+              </div>
+            ) : (
+              // Logged In View
+              <div className="flex-1 flex flex-col overflow-hidden">
+                {/* Tabs */}
+                <div className="flex p-4 gap-2">
+                  <button onClick={() => setActiveTab('orders')} className={`flex-1 py-2 text-sm font-bold uppercase rounded-lg transition-colors ${activeTab === 'orders' ? 'bg-cyan-600 text-white' : 'bg-slate-900 text-slate-500 hover:text-white'}`}>
+                    Orders ({myOrders.length})
+                  </button>
+                  <button onClick={() => setActiveTab('applications')} className={`flex-1 py-2 text-sm font-bold uppercase rounded-lg transition-colors ${activeTab === 'applications' ? 'bg-cyan-600 text-white' : 'bg-slate-900 text-slate-500 hover:text-white'}`}>
+                    Applications ({myApps.length})
+                  </button>
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                  {loading ? (
+                    <div className="flex justify-center py-20"><Spinner size={30} /></div>
+                  ) : (
+                    <>
+                      {/* ORDERS TAB */}
+                      {activeTab === 'orders' && (
+                        <>
+                          {myOrders.length === 0 && <div className="text-center text-slate-500 py-10">No orders found for this number.</div>}
+                          {myOrders.map((order) => (
+                            <div key={order._id || order.id} className="bg-slate-900 p-4 rounded-xl border border-white/5">
+                              <div className="flex justify-between items-start mb-3">
+                                <div>
+                                  <div className="text-[10px] text-slate-500 uppercase tracking-wider">Order ID: {order.orderId}</div>
+                                  <div className="text-xs text-slate-400">{new Date(order.createdAt || Date.now()).toLocaleDateString()}</div>
+                                </div>
+                                <div className={`px-2 py-1 rounded text-[10px] uppercase font-bold ${
+                                  order.status === 'Pending' ? 'bg-orange-500/20 text-orange-400' :
+                                  order.status === 'Dispatched' ? 'bg-blue-500/20 text-blue-400' :
+                                  'bg-green-500/20 text-green-400'
+                                }`}>
+                                  {order.status}
+                                </div>
+                              </div>
+                              <div className="space-y-1 mb-3">
+                                {order.items.map((item, i) => (
+                                  <div key={i} className="flex justify-between text-sm text-slate-300">
+                                    <span>{item.quantity}x {item.size}</span>
+                                    <span>₹{item.priceAtPurchase * item.quantity}</span>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="border-t border-white/10 pt-2 flex justify-between items-center">
+                                <span className="text-xs text-slate-500">Total Amount</span>
+                                <span className="text-cyan-400 font-mono font-bold">₹{order.totalAmount}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </>
+                      )}
+
+                      {/* APPLICATIONS TAB */}
+                      {activeTab === 'applications' && (
+                         <>
+                          {myApps.length === 0 && <div className="text-center text-slate-500 py-10">No applications found.</div>}
+                          {myApps.map((app) => (
+                            <div key={app._id} className="bg-slate-900 p-4 rounded-xl border border-white/5">
+                               <div className="flex justify-between items-center mb-2">
+                                  <h4 className="font-bold text-white">{app.shopName}</h4>
+                                  <span className={`text-[10px] px-2 py-1 rounded font-bold uppercase ${
+                                    app.status === 'Approved' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'
+                                  }`}>
+                                    {app.status || 'Under Review'}
+                                  </span>
+                               </div>
+                               <div className="text-xs text-slate-400">
+                                 <p>Applied for: {app.volume}</p>
+                                 <p>Location: {app.city}</p>
+                               </div>
+                            </div>
+                          ))}
+                         </>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {/* Logout */}
+                <div className="p-4 border-t border-white/10">
+                  <button onClick={handleLogout} className="w-full py-3 text-red-400 text-xs uppercase font-bold hover:bg-red-500/10 rounded-lg transition-colors flex items-center justify-center gap-2">
+                    <LogOut size={14} /> Sign Out
+                  </button>
+                </div>
+              </div>
+            )}
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+};
+
 const LoginModal = ({ isOpen, onClose, onLogin }) => {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -1329,6 +1519,7 @@ export default function App() {
   const [viewMode, setViewMode] = useState('customer'); // 'customer' or 'admin'
   const [loginOpen, setLoginOpen] = useState(false);
   const [token, setToken] = useState(localStorage.getItem('adminToken') || null);
+  const [dashboardOpen, setDashboardOpen] = useState(false); // <--- Customer Dashboard State
 
   // DYNAMIC DATA STATES
   const [products, setProducts] = useState([]); 
@@ -1680,9 +1871,15 @@ export default function App() {
             <button onClick={() => setMenuOpen(true)} className="hover:text-cyan-400 transition-colors">Catalog</button>
             <button onClick={() => setPartnerOpen(true)} className="hover:text-cyan-400 transition-colors">Distributorship</button>
             </div>
-            <button onClick={() => setCartOpen(true)} className="flex gap-2 items-center hover:text-cyan-400 transition-colors font-bold uppercase text-sm">
-            <Package size={18} /> Bulk List ({getCartCount()})
-            </button>
+            
+            <div className="flex items-center gap-6">
+                <button onClick={() => setDashboardOpen(true)} className="flex items-center gap-2 text-sm font-bold uppercase hover:text-cyan-400 transition-colors">
+                    <UserPlus size={18} /> My Orders
+                </button>
+                <button onClick={() => setCartOpen(true)} className="flex gap-2 items-center hover:text-cyan-400 transition-colors font-bold uppercase text-sm">
+                    <Package size={18} /> Bulk List ({getCartCount()})
+                </button>
+            </div>
         </nav>
 
         {/* Main Content */}
@@ -1760,6 +1957,7 @@ export default function App() {
         
         <FullScreenMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} openPartner={() => { setMenuOpen(false); setPartnerOpen(true); }} />
         <PartnerModal isOpen={partnerOpen} onClose={() => setPartnerOpen(false)} />
+        <CustomerDashboard isOpen={dashboardOpen} onClose={() => setDashboardOpen(false)} />
         <LoginModal isOpen={loginOpen} onClose={() => setLoginOpen(false)} onLogin={handleLogin} />
 
         {/* Footer */}
