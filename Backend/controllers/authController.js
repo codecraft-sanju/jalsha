@@ -12,20 +12,24 @@ const loginUser = async (req, res) => {
     let user = await User.findOne({ email });
 
     // 🔥🔥🔥 AUTO-CREATE ADMIN LOGIC (Start) 🔥🔥🔥
-    // Agar user nahi mila, aur email 'admin@jalsa.com' hai, toh naya bana do
-    if (!user && email === 'admin@jalsa.com') {
+    // .env se credentials nikalo
+    const adminEmail = process.env.ADMIN_EMAIL; 
+    const adminPass = process.env.ADMIN_PASS;   
+
+    // Agar user nahi mila, aur login email wahi hai jo .env me hai -> Toh Admin Create karo
+    if (!user && email === adminEmail) {
         const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash('admin123', salt); // Default Password
+        const hashedPassword = await bcrypt.hash(adminPass, salt); // Password from .env
         
         user = new User({
             name: 'Super Admin',
-            email: 'admin@jalsa.com',
+            email: adminEmail,
             password: hashedPassword,
             role: 'Admin'
         });
         
         await user.save();
-        console.log("🆕 Admin Auto-Created in Database!");
+        console.log(`🆕 Admin (${adminEmail}) Auto-Created in Database!`);
     }
     // 🔥🔥🔥 AUTO-CREATE ADMIN LOGIC (End) 🔥🔥🔥
 
