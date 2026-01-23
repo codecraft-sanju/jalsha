@@ -1,7 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const { submitApplication, getApplications, updateStatus } = require('../controllers/applicationController');
-const auth = require('../middleware/auth'); // Tumhara admin auth middleware
+const auth = require('../middleware/authMiddleware'); 
+
 
 // Public: Submit form
 router.post('/', submitApplication);
