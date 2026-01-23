@@ -58,6 +58,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes); 
 app.use('/api/orders', orderRoutes);     
 app.use('/api/dealers', dealerRoutes);   
+app.use('/api/applications', require('./routes/applications'));
 
 // --- BASE ROUTE ---
 app.get('/', (req, res) => {

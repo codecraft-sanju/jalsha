@@ -802,20 +802,20 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
               {safeDealers.map((d, i) => (
                  <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: i * 0.1 }} key={d._id || d.id} className="bg-slate-900 p-5 rounded-2xl border border-white/5 relative">
                     <div className="flex justify-between items-start mb-4">
-                       <div>
-                          <div className="font-bold text-lg">{d.shopName}</div>
-                          <div className="text-xs text-slate-400">{d.name}</div>
-                          <div className="text-xs text-slate-500 flex items-center gap-1 mt-1">
-                             <MapPin size={10} /> {d.location}
-                          </div>
-                       </div>
-                       <div className="text-right">
-                          <div className={`font-mono font-bold text-xl ${d.balance > 0 ? 'text-red-400' : 'text-green-400'}`}>
-                             {/* Positive Balance means Dealer owes us (Red/Debt) */}
-                             ₹{d.balance.toLocaleString()}
-                          </div>
-                          <div className="text-[9px] uppercase tracking-widest text-slate-500">Current Due</div>
-                       </div>
+                        <div>
+                           <div className="font-bold text-lg">{d.shopName}</div>
+                           <div className="text-xs text-slate-400">{d.name}</div>
+                           <div className="text-xs text-slate-500 flex items-center gap-1 mt-1">
+                              <MapPin size={10} /> {d.location}
+                           </div>
+                        </div>
+                        <div className="text-right">
+                           <div className={`font-mono font-bold text-xl ${d.balance > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                              {/* Positive Balance means Dealer owes us (Red/Debt) */}
+                              ₹{d.balance.toLocaleString()}
+                           </div>
+                           <div className="text-[9px] uppercase tracking-widest text-slate-500">Current Due</div>
+                        </div>
                     </div>
                     
                     <div className="flex items-center justify-between bg-black/20 p-3 rounded-xl">
@@ -1040,26 +1040,58 @@ const FullScreenMenu = ({ isOpen, onClose, openPartner }) => (
   </AnimatePresence>
 );
 
+// ✅ DYNAMIC PARTNER MODAL
 const PartnerModal = ({ isOpen, onClose }) => {
     const [submitting, setSubmitting] = useState(false);
     const [success, setSuccess] = useState(false);
     const [form, setForm] = useState({ name: '', shop: '', mobile: '', city: '', volume: '100 - 500 Crates' });
 
     const handleSubmit = async () => {
-        setSubmitting(true);
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
-        // WhatsApp Redirect
-        const message = `*New Dealership Application*\n\nName: ${form.name}\nShop: ${form.shop}\nMobile: ${form.mobile}\nCity: ${form.city}\nVolume: ${form.volume}`;
-        window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`, '_blank');
+        if(!form.name || !form.mobile) {
+            toast.error("Name and Mobile are required");
+            return;
+        }
 
-        setSubmitting(false);
-        setSuccess(true);
-        setTimeout(() => {
-             setSuccess(false);
-             onClose();
-        }, 2500);
+        setSubmitting(true);
+        try {
+            // 1. Submit to Backend API (Saves to Database)
+            const response = await fetch(`${API_URL}/api/applications`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: form.name,
+                    shopName: form.shop,
+                    mobile: form.mobile,
+                    city: form.city,
+                    volume: form.volume
+                })
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.msg || 'Submission failed');
+            }
+
+            // 2. Open WhatsApp (For Immediate Contact)
+            // Includes Reference ID from Database for tracking
+            const message = `*New Dealership Application*\n\nName: ${form.name}\nShop: ${form.shop}\nMobile: ${form.mobile}\nCity: ${form.city}\nVolume: ${form.volume}\n\n*Reference ID:* ${data.id}`;
+            window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`, '_blank');
+
+            // 3. UI Success State
+            setSuccess(true);
+            setTimeout(() => {
+                 setSuccess(false);
+                 onClose();
+                 // Reset Form
+                 setForm({ name: '', shop: '', mobile: '', city: '', volume: '100 - 500 Crates' });
+            }, 2500);
+
+        } catch (error) {
+            toast.error(error.message);
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     return (
@@ -1074,7 +1106,7 @@ const PartnerModal = ({ isOpen, onClose }) => {
                           <CheckCircle size={40}/>
                       </motion.div>
                       <h3 className="text-2xl font-bold text-white mb-2">Application Sent!</h3>
-                      <p className="text-slate-400">Opening WhatsApp to complete your request...</p>
+                      <p className="text-slate-400">We have received your details.<br/>Opening WhatsApp now...</p>
                   </div>
               ) : (
                 <>
