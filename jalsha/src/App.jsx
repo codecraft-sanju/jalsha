@@ -1100,15 +1100,23 @@ const SocialIcon = ({ Icon }) => (
    </a>
 );
 
+// ✅ FIXED: Added Mobile Input Field Here
 const CartDrawer = ({ isOpen, onClose, cart, onCheckout, onUpdateCart }) => {
   const items = Object.values(cart);
   const totalCrates = items.reduce((acc, item) => acc + item.quantity, 0);
   const totalCost = items.reduce((acc, item) => acc + (item.quantity * item.pricePerCrate), 0);
   const [loading, setLoading] = useState(false);
+  // NEW: State for mobile input
+  const [mobileInput, setMobileInput] = useState(localStorage.getItem('jalsa_customer_mobile') || '');
 
   const handleCheckoutClick = async () => {
+      // NEW: Validation
+      if (!mobileInput || mobileInput.length < 10) {
+          toast.error("Please enter a valid mobile number");
+          return;
+      }
       setLoading(true);
-      await onCheckout();
+      await onCheckout(mobileInput); // Pass mobile to parent handler
       setLoading(false);
   };
 
@@ -1156,6 +1164,19 @@ const CartDrawer = ({ isOpen, onClose, cart, onCheckout, onUpdateCart }) => {
             <div className="mt-6 border-t border-white/10 pt-4 space-y-4">
                <div className="flex justify-between items-center text-sm"><span className="text-slate-400">Total Crates</span><span className="text-white font-bold">{totalCrates}</span></div>
                <div className="flex justify-between items-center text-xl"><span className="text-slate-400">Est. Total</span><span className="text-cyan-400 font-bold font-mono">₹{totalCost.toLocaleString()}</span></div>
+               
+               {/* NEW: Input Field added here */}
+               <div className="space-y-2">
+                   <label className="text-xs text-slate-400 uppercase tracking-wider">Contact Number</label>
+                   <input 
+                       type="tel" 
+                       placeholder="Enter your mobile number" 
+                       value={mobileInput}
+                       onChange={(e) => setMobileInput(e.target.value)}
+                       className="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-white outline-none focus:border-cyan-500"
+                   />
+               </div>
+
                <LuxuryButton primary className="w-full" onClick={handleCheckoutClick} disabled={items.length === 0} loading={loading}>Request via WhatsApp</LuxuryButton>
                <p className="text-[10px] text-center text-slate-600">Note: Final pricing and delivery charges will be confirmed by our sales team.</p>
             </div>
@@ -1715,12 +1736,10 @@ export default function App() {
 
   const getCartCount = () => Object.keys(cart).length;
 
-  const handleWhatsAppCheckout = async () => {
+  // ✅ UPDATED: Now accepts mobile number to send to backend
+  const handleWhatsAppCheckout = async (customerMobile) => {
     const items = Object.values(cart);
     if (items.length === 0) return;
-
-    // 🔥 FIX: Removed fake delay to prevent popup blocker and save time
-    // await new Promise(resolve => setTimeout(resolve, 1000));
 
     const totalEstimate = items.reduce((acc, item) => acc + (item.quantity * item.pricePerCrate), 0);
     const orderItems = items.map(i => ({ productId: i._id, size: i.size, quantity: i.quantity, priceAtPurchase: i.pricePerCrate }));
@@ -1728,6 +1747,7 @@ export default function App() {
     try {
         const orderData = {
             customerName: "Web Customer", 
+            customerMobile: customerMobile, // ✅ FIXED: Now sending mobile to backend
             items: orderItems,
             totalAmount: totalEstimate,
             paymentStatus: "Unpaid"
@@ -1740,6 +1760,9 @@ export default function App() {
         });
 
         if(res.ok) {
+            // Save mobile for future use
+            localStorage.setItem('jalsa_customer_mobile', customerMobile);
+
             const savedOrder = await res.json();
             let message = `*Wholesale Inquiry - जलsa Water*\n*Order ID:* ${savedOrder.orderId}\n\nI have placed an order via website:\n`;
             items.forEach(item => {
@@ -1785,7 +1808,6 @@ export default function App() {
       } catch (err) { toast.error('Status update failed'); }
   };
 
-  // ✅ UPDATED: Send Type & Description to match new Backend Controller
   const handleDealerTransaction = async (id, amount, type, description) => {
       try {
           await fetch(`${API_URL}/api/dealers/${id}/transaction`, {
