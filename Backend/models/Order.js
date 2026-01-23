@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 
 const orderSchema = new mongoose.Schema({
-  orderId: { type: String, unique: true }, // #ORD-1001
+  orderId: { type: String, unique: true }, 
   
   dealerId: { 
     type: mongoose.Schema.Types.ObjectId, 
@@ -10,12 +10,20 @@ const orderSchema = new mongoose.Schema({
   },
   
   customerName: { type: String, required: true },
-  shippingAddress: { type: String }, // Agar delivery location alag ho
+  
+  // ✅ NEW UPDATE: Ye field add karo
+  customerMobile: { 
+    type: String, 
+    required: true, 
+    index: true // Fast searching ke liye index zaroori hai
+  },
+
+  shippingAddress: { type: String }, 
 
   items: [
     {
       productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product' },
-      productName: String, // Name save kar lete hain taaki product delete hone par bhi order history me dikhe
+      productName: String,
       size: String,
       quantity: Number, 
       priceAtPurchase: Number 
@@ -24,21 +32,19 @@ const orderSchema = new mongoose.Schema({
 
   totalAmount: { type: Number, required: true },
 
-  // 🚚 Logistics Status
   status: {
     type: String,
     enum: ['Pending', 'Processing', 'Dispatched', 'Delivered', 'Cancelled'],
     default: 'Pending',
   },
 
-  // 💰 Money Status (Bahut Zaroori for Wholesale)
   paymentStatus: {
     type: String,
-    enum: ['Unpaid', 'Partial', 'Paid', 'Credit'], // Credit means Udhaar khate me jud gaya
+    enum: ['Unpaid', 'Partial', 'Paid', 'Credit'], 
     default: 'Unpaid'
   },
   
-  paidAmount: { type: Number, default: 0 } // Kitna paisa abhi diya
+  paidAmount: { type: Number, default: 0 }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Order', orderSchema);

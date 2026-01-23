@@ -6,9 +6,10 @@ const Dealer = require('../models/Dealer');
 // @route   POST /api/orders
 const createOrder = async (req, res) => {
   try {
-    const { customerName, dealerId, items, totalAmount, paymentStatus } = req.body;
+    // 1️⃣ 'customerMobile' ko req.body se extract karo
+    const { customerName, customerMobile, dealerId, items, totalAmount, paymentStatus } = req.body;
 
-    // 1. Validate Stock Availability First
+    // Validate Stock
     for (const item of items) {
         const product = await Product.findById(item.productId);
         if (!product || product.stock < item.quantity) {
@@ -16,10 +17,11 @@ const createOrder = async (req, res) => {
         }
     }
 
-    // 2. Create Order
+    // 2️⃣ Order Create karte waqt customerMobile save karo
     const newOrder = new Order({
         orderId: `#ORD-${Math.floor(100000 + Math.random() * 900000)}`,
         customerName,
+        customerMobile, // ✅ ADDED: Database me save hoga
         dealerId: dealerId || null,
         items,
         totalAmount,
@@ -34,27 +36,26 @@ const createOrder = async (req, res) => {
         const product = await Product.findById(item.productId);
         product.stock -= item.quantity;
         await product.save();
-        req.io.emit('stock_updated', product); // 🟢 Socket (Real-time Inventory Update)
+        req.io.emit('stock_updated', product);
     }
 
-    // 4. If Dealer Order -> Update Ledger (Khata)
-    // Agar payment 'Credit' (Udhaar) hai, toh Dealer ke balance me jod do
+    // 4. Ledger Update (Same as before)
     if (dealerId && paymentStatus !== 'Paid') {
         const dealer = await Dealer.findById(dealerId);
         if (dealer) {
-            dealer.balance += totalAmount; // Udhaar Badha
+            dealer.balance += totalAmount;
             dealer.transactions.push({
                 amount: totalAmount,
-                type: 'Debit', // Maal Gaya
+                type: 'Debit',
                 description: `Order ${savedOrder.orderId}`,
                 date: Date.now()
             });
             await dealer.save();
-            req.io.emit('dealer_updated', dealer); // 🟢 Socket (Update Khata UI)
+            req.io.emit('dealer_updated', dealer);
         }
     }
 
-    req.io.emit('new_order', savedOrder); // 🟢 Socket (Admin Dashboard Alert)
+    req.io.emit('new_order', savedOrder);
     res.status(201).json(savedOrder);
 
   } catch (err) {
@@ -63,27 +64,44 @@ const createOrder = async (req, res) => {
   }
 };
 
-// @desc    Update Order Status (Dispatch/Deliver)
+// @desc    Get All Orders (Dynamic: Admin or Customer)
+// @route   GET /api/orders?mobile=9876543210
+const getAllOrders = async (req, res) => {
+    try {
+        const { mobile } = req.query; // Frontend se ?mobile=... aayega
+        
+        let query = {};
+        
+        // ✅ Agar mobile number hai, toh filter karo (Customer View)
+        if (mobile) {
+            query.customerMobile = mobile; 
+        }
+        // ✅ Agar mobile nahi hai, toh sab dikhao (Admin View)
+
+        const orders = await Order.find(query)
+            .populate('dealerId', 'name mobile')
+            .sort({ createdAt: -1 });
+            
+        res.json(orders);
+    } catch (err) {
+        res.status(500).send('Server Error');
+    }
+};
+
+// Update Status (No Change needed here)
 const updateOrderStatus = async (req, res) => {
   try {
     const { status, paymentStatus } = req.body;
-    
     const order = await Order.findByIdAndUpdate(
         req.params.id,
         { status, paymentStatus },
         { new: true }
     );
-
-    req.io.emit('order_status_updated', order); // 🟢 Socket
+    req.io.emit('order_status_updated', order);
     res.json(order);
   } catch (err) {
     res.status(500).send('Server Error');
   }
-};
-
-const getAllOrders = async (req, res) => {
-    const orders = await Order.find().populate('dealerId', 'name mobile').sort({ createdAt: -1 });
-    res.json(orders);
 };
 
 module.exports = { createOrder, updateOrderStatus, getAllOrders };
