@@ -174,6 +174,7 @@ const MobileDock = ({ itemCount, onOpenCart, onOpenMenu, onOpenDashboard }) => {
   );
 };
 
+// ✅ UPDATED: Bottle set to z-[5] to float ABOVE video (z-0) but BELOW text (z-20)
 const ParallaxBottle = () => {
   const { scrollY } = useScroll();
   const smoothY = useSpring(scrollY, { 
@@ -184,14 +185,16 @@ const ParallaxBottle = () => {
   const y = useTransform(smoothY, [0, 500, 1000], ['-35%', '25%', '50%']);
   const rotate = useTransform(smoothY, [0, 500], [5, 0]); 
   const scale = useTransform(smoothY, [0, 500], [1.1, 0.9]); 
-  const opacity = useTransform(smoothY, [800, 1200], [1, 0]);
+  
+  // Fade out slightly later so it stays visible longer
+  const opacity = useTransform(smoothY, [800, 1400], [1, 0]);
    
   return (
-    <div className="fixed inset-0 pointer-events-none z-0 flex items-center justify-center overflow-hidden">
+    <div className="fixed inset-0 pointer-events-none z-[5] flex items-center justify-center overflow-hidden">
       <BlurPatch className="w-[80vw] h-[80vw] bg-cyan-500/20 md:opacity-10" />
       <motion.div 
         style={{ y, rotate, scale, opacity }} 
-        className="relative h-[65vh] md:h-[95vh] w-auto aspect-[1/3] z-20 will-change-transform transform-gpu"
+        className="relative h-[65vh] md:h-[95vh] w-auto aspect-[1/3] will-change-transform transform-gpu"
       >
         <img 
           src="./1litre.png" alt="Jalsa Premium" 
@@ -235,7 +238,6 @@ const ProductCard = ({ p, onUpdateCart, cartItem, index }) => {
         <div className="h-[55%] flex items-center justify-center bg-gradient-to-b from-slate-800 to-slate-900 relative p-6">
            <div className="absolute inset-0 bg-cyan-500/10 blur-3xl group-hover:bg-cyan-500/20 transition-colors duration-500" />
            <motion.img 
-             // ✅ FIXED: Support for both 'img' (Cloudinary) and 'imageUrl' (Legacy)
              src={p.img || p.imageUrl} 
              alt={p.size} 
              className={`h-full w-auto object-contain drop-shadow-2xl z-10 ${isOutOfStock ? 'grayscale opacity-50' : ''}`}
@@ -305,26 +307,25 @@ const ProductCard = ({ p, onUpdateCart, cartItem, index }) => {
 
 // --- REUSABLE SECTIONS ---
 
-// ✅ UPDATED HERO SECTION WITH VIDEO & BRAND NAME OVERLAY
+// ✅ UPDATED HERO: Video is z-0, Bottle will float at z-5, Content at z-20
 const HeroSection = ({ openPartnerModal }) => (
-    <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-4 pt-20 z-10 overflow-hidden">
+    <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-4 pt-20 overflow-hidden">
       
-      {/* 1. VIDEO BACKGROUND LAYER */}
+      {/* 1. VIDEO BACKGROUND LAYER - Pushed back */}
       <div className="absolute inset-0 z-0 pointer-events-none">
-        <div className="absolute inset-0 bg-slate-950/70 z-10" /> {/* Dark Overlay for text readability */}
+        <div className="absolute inset-0 bg-slate-950/60 z-10" /> {/* Slightly darker overlay to pop the bottle */}
         <video 
           autoPlay 
           muted 
           loop 
           playsInline 
-          className="w-full h-full object-cover opacity-80"
+          className="w-full h-full object-cover opacity-70"
         >
-          {/* ✅ VIDEO ADDED HERE */}
           <source src="/secondvideo.mp4" type="video/mp4" />
         </video>
       </div>
 
-      {/* 2. CONTENT LAYER */}
+      {/* 2. CONTENT LAYER - Pushed forward */}
       <div className="relative z-20 flex flex-col items-center w-full max-w-5xl mt-[10vh]">
         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 1 }} className="flex items-center justify-center gap-2 mb-4 md:mb-8">
           <span className="px-4 py-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-400 text-[10px] tracking-[0.3em] font-bold uppercase backdrop-blur-md shadow-[0_0_15px_-5px_rgba(6,182,212,0.5)] flex items-center gap-2">
@@ -1178,6 +1179,8 @@ export default function App() {
         <Toaster position="bottom-center" toastOptions={{ style: { background: '#1e293b', color: '#fff', border: '1px solid #334155' }}} />
         <GrainOverlay />
         <FloatingBubbles />
+        
+        {/* ✅ BOTTLE COMPONENT ADDED HERE TO BE FIXED AND ABOVE VIDEO */}
         <ParallaxBottle />
         
         {/* Navigation */}
