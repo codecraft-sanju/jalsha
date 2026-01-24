@@ -21,7 +21,8 @@ import {
 import { io } from 'socket.io-client';
 import { Toaster, toast } from 'react-hot-toast';
 
-// ✅ FIXED: Import path updated (Assuming adminPanel.jsx is in the same folder)
+// ✅ FIXED: Ensure this path is correct based on your folder structure
+// Agar adminPanel.jsx same folder me hai toh: import AdminView from './adminPanel';
 import AdminView from './pages/adminPanel'; 
 
 // --- CONFIGURATION & ASSETS ---
@@ -188,7 +189,7 @@ const ParallaxBottle = () => {
   
   // Fade out slightly later so it stays visible longer
   const opacity = useTransform(smoothY, [800, 1400], [1, 0]);
-   
+    
   return (
     <div className="fixed inset-0 pointer-events-none z-[5] flex items-center justify-center overflow-hidden">
       <BlurPatch className="w-[80vw] h-[80vw] bg-cyan-500/20 md:opacity-10" />
@@ -544,6 +545,9 @@ const PartnerModal = ({ isOpen, onClose }) => {
                 throw new Error(data.msg || 'Submission failed');
             }
 
+            // ✅ CRITICAL FIX: Save mobile to localStorage so tracking works immediately
+            localStorage.setItem('jalsa_customer_mobile', form.mobile);
+
             const message = `*New Dealership Application*\n\nName: ${form.name}\nShop: ${form.shop}\nMobile: ${form.mobile}\nCity: ${form.city}\nVolume: ${form.volume}\n\n*Reference ID:* ${data.id}`;
             window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`, '_blank');
 
@@ -632,11 +636,12 @@ const CustomerDashboard = ({ isOpen, onClose }) => {
     }
   };
 
+  // ✅ CRITICAL FIX: Added 'mobile' to dependency array so dashboard refreshes if number changes
   useEffect(() => {
     if (isOpen && isLoggedIn && mobile) {
       fetchCustomerData(mobile);
     }
-  }, [isOpen, isLoggedIn]);
+  }, [isOpen, isLoggedIn, mobile]);
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -693,7 +698,7 @@ const CustomerDashboard = ({ isOpen, onClose }) => {
                     type="tel" 
                     placeholder="Mobile Number (e.g. 9876543210)" 
                     value={mobile} 
-                    onChange={e => setMobile(e.target.value)}
+                    onChange={e => setMobile(e.target.value)} 
                     className="w-full bg-slate-900 border border-slate-800 rounded-xl p-4 text-white text-center text-lg tracking-widest outline-none focus:border-cyan-500 transition-colors"
                   />
                   <LuxuryButton primary className="w-full justify-center" onClick={handleLogin}>View Dashboard</LuxuryButton>
@@ -846,7 +851,7 @@ export default function App() {
   const [products, setProducts] = useState([]); 
   const [orders, setOrders] = useState([]);
   const [dealers, setDealers] = useState([]); 
-   
+    
   const [cart, setCart] = useState(() => {
       try {
         const saved = localStorage.getItem('jalsa_cart');

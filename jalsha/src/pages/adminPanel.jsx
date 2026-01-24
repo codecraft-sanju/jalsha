@@ -312,7 +312,7 @@ const NavButton = ({ icon: Icon, label, active, onClick, count }) => (
     <div className="relative">
        <Icon size={24} strokeWidth={active ? 2.5 : 2} />
        {count > 0 && (
-         <span className="absolute -top-1 -right-2 bg-red-500 text-white text-[10px] font-bold px-1.5 rounded-full min-w-[16px] h-4 flex items-center justify-center">
+         <span className="absolute -top-1 -right-2 bg-red-500 text-white text-[10px] font-bold px-1.5 rounded-full min-w-[16px] h-4 flex items-center justify-center border border-slate-900">
            {count}
          </span>
        )}
@@ -335,8 +335,14 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
   const safeOrders = Array.isArray(orders) ? orders : [];
   const safeDealers = Array.isArray(dealers) ? dealers : [];
 
+  // --- CALCULATION LOGIC FOR BADGES ---
   const totalRevenue = safeOrders.reduce((acc, o) => acc + (o.totalAmount || 0), 0);
   const pendingCount = safeOrders.filter(o => o.status === 'Pending').length;
+  
+  // Logic for other badges
+  const lowStockCount = products.filter(p => p.stock < (p.lowStockThreshold || 50)).length;
+  const pendingRequestsCount = applications.filter(app => app.status !== 'Approved').length;
+  const dueDealersCount = safeDealers.filter(d => d.balance > 0).length;
 
   const handleEditClick = (product) => {
       setEditingProduct(product);
@@ -384,11 +390,10 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
       } catch (err) { console.error("App Fetch Error", err); }
   };
 
+  // ✅ Fetch applications immediately so badge count is visible on load
   useEffect(() => {
-      if (activeTab === 'requests') {
-          fetchApplications();
-      }
-  }, [activeTab]);
+      fetchApplications();
+  }, []);
 
   const handleApproveApplication = async (app) => {
       if(!window.confirm(`Approve ${app.name} as a Dealer?`)) return;
@@ -800,9 +805,9 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
       <div className="fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-white/10 px-2 py-3 flex justify-around items-center z-50 safe-area-bottom">
         <NavButton icon={LayoutDashboard} label="Dash" active={activeTab === 'dashboard'} onClick={() => setActiveTab('dashboard')} />
         <NavButton icon={Package} label="Orders" active={activeTab === 'orders'} onClick={() => setActiveTab('orders')} count={pendingCount} />
-        <NavButton icon={Layers} label="Stock" active={activeTab === 'stock'} onClick={() => setActiveTab('stock')} />
-        <NavButton icon={BookOpen} label="Khata" active={activeTab === 'credit'} onClick={() => setActiveTab('credit')} />
-        <NavButton icon={FileText} label="Requests" active={activeTab === 'requests'} onClick={() => setActiveTab('requests')} />
+        <NavButton icon={Layers} label="Stock" active={activeTab === 'stock'} onClick={() => setActiveTab('stock')} count={lowStockCount} />
+        <NavButton icon={BookOpen} label="Khata" active={activeTab === 'credit'} onClick={() => setActiveTab('credit')} count={dueDealersCount} />
+        <NavButton icon={FileText} label="Requests" active={activeTab === 'requests'} onClick={() => setActiveTab('requests')} count={pendingRequestsCount} />
         <NavButton icon={Settings} label="Config" active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} />
       </div>
     </div>
