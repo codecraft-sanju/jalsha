@@ -20,9 +20,10 @@ import {
 import { io } from 'socket.io-client';
 import { Toaster, toast } from 'react-hot-toast';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+// ✅ FIX 1: Import autoTable as a default export
+import autoTable from 'jspdf-autotable';
 
-// ✅ Ensure this path is correct
+// ✅ Ensure this path is correct based on your folder structure
 import AdminView from './pages/adminPanel'; 
 
 // --- CONFIGURATION & ASSETS ---
@@ -33,12 +34,13 @@ const NOISE_BG = "url('https://grainy-gradients.vercel.app/noise.svg')";
 
 // --- UTILITIES ---
 
-// ✅ INVOICE GENERATOR
+// ✅ INVOICE GENERATOR (FIXED)
 const generateInvoice = (order) => {
   const doc = new jsPDF();
   
+  // Header
   doc.setFontSize(22);
-  doc.setTextColor(6, 182, 212);
+  doc.setTextColor(6, 182, 212); // Cyan
   doc.text("Jalsa Water Supply", 14, 20);
   
   doc.setFontSize(10);
@@ -46,6 +48,7 @@ const generateInvoice = (order) => {
   doc.text("Plot No. 45, Industrial Area, Mokampura", 14, 26);
   doc.text("GSTIN: 08AABCJ1234F1Z5 | Ph: +91 9867165845", 14, 31);
 
+  // Order Details
   doc.setFontSize(12);
   doc.setTextColor(0);
   doc.text(`Invoice #${order.orderId}`, 14, 45);
@@ -54,6 +57,7 @@ const generateInvoice = (order) => {
   doc.text(`Customer: ${order.customerName}`, 14, 57);
   doc.text(`Mobile: ${order.customerMobile}`, 14, 63);
 
+  // Table Data Preparation
   const tableColumn = ["Item", "Size", "Qty", "Rate (Rs)", "Total (Rs)"];
   const tableRows = [];
 
@@ -68,7 +72,8 @@ const generateInvoice = (order) => {
     tableRows.push(itemData);
   });
 
-  doc.autoTable({
+  // ✅ FIX 2: Call autoTable directly, passing 'doc' as the first argument
+  autoTable(doc, {
     head: [tableColumn],
     body: tableRows,
     startY: 70,
@@ -76,14 +81,20 @@ const generateInvoice = (order) => {
     headStyles: { fillColor: [6, 182, 212] },
   });
 
-  const finalY = doc.lastAutoTable.finalY + 10;
+  // Total
+  // ✅ FIX 3: Get finalY from the autoTable state (depends on version, usually lastAutoTable.finalY works)
+  const finalY = (doc.lastAutoTable?.finalY || 70) + 10;
+  
   doc.setFontSize(14);
   doc.setTextColor(0);
   doc.text(`Total Amount: Rs. ${order.totalAmount.toLocaleString()}`, 14, finalY);
   
+  // Footer
   doc.setFontSize(8);
   doc.setTextColor(150);
   doc.text("Thank you for your business!", 14, finalY + 20);
+  doc.text("This is a computer generated invoice.", 14, finalY + 25);
+
   doc.save(`Invoice_${order.orderId}.pdf`);
 };
 
@@ -189,7 +200,6 @@ const FloatingBubbles = () => {
   );
 };
 
-// ✅ ADDED MISSING SPLASH LOADER
 const SplashLoader = () => (
     <div className="fixed inset-0 bg-slate-950 z-[100] flex items-center justify-center">
       <div className="flex flex-col items-center relative">
