@@ -108,27 +108,6 @@ const LuxuryButton = ({ children, primary = false, onClick, className = "", icon
   </motion.button>
 );
 
-const ShimmerHeadline = () => {
-  return (
-    <div className="relative inline-block">
-      <h1 className="text-6xl md:text-[10rem] font-black text-white/10 leading-[0.8] tracking-tighter select-none mix-blend-overlay">
-        BULK SUPPLY
-      </h1>
-      <motion.div 
-        className="absolute inset-0 text-6xl md:text-[10rem] font-black leading-[0.8] tracking-tighter select-none text-transparent bg-clip-text bg-[linear-gradient(110deg,rgba(255,255,255,0.1)_40%,#22d3ee_50%,rgba(255,255,255,0.1)_60%)] bg-[length:250%_100%]"
-        animate={{ backgroundPosition: ["100% 0%", "-100% 0%"] }}
-        transition={{ duration: 3, ease: "easeInOut", repeat: Infinity, repeatDelay: 0.5 }}
-        style={{ WebkitBackgroundClip: "text" }}
-      >
-        BULK SUPPLY
-      </motion.div>
-      <div className="absolute inset-0 text-6xl md:text-[10rem] font-black leading-[0.8] tracking-tighter select-none text-transparent bg-clip-text bg-gradient-to-b from-white via-white/50 to-transparent opacity-80 pointer-events-none">
-        BULK SUPPLY
-      </div>
-    </div>
-  );
-};
-
 const FloatingBubbles = () => {
   const bubbles = Array.from({ length: 15 }).map((_, i) => ({
     id: i,
@@ -206,7 +185,7 @@ const ParallaxBottle = () => {
   const rotate = useTransform(smoothY, [0, 500], [5, 0]); 
   const scale = useTransform(smoothY, [0, 500], [1.1, 0.9]); 
   const opacity = useTransform(smoothY, [800, 1200], [1, 0]);
-  
+   
   return (
     <div className="fixed inset-0 pointer-events-none z-0 flex items-center justify-center overflow-hidden">
       <BlurPatch className="w-[80vw] h-[80vw] bg-cyan-500/20 md:opacity-10" />
@@ -326,26 +305,56 @@ const ProductCard = ({ p, onUpdateCart, cartItem, index }) => {
 
 // --- REUSABLE SECTIONS ---
 
+// ✅ UPDATED HERO SECTION WITH VIDEO & BRAND NAME OVERLAY
 const HeroSection = ({ openPartnerModal }) => (
-    <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-4 pt-20 z-10">
-      <div className="relative z-10 flex flex-col items-center w-full max-w-5xl mt-[20vh]">
+    <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-4 pt-20 z-10 overflow-hidden">
+      
+      {/* 1. VIDEO BACKGROUND LAYER */}
+      <div className="absolute inset-0 z-0 pointer-events-none">
+        <div className="absolute inset-0 bg-slate-950/70 z-10" /> {/* Dark Overlay for text readability */}
+        <video 
+          autoPlay 
+          muted 
+          loop 
+          playsInline 
+          className="w-full h-full object-cover opacity-80"
+        >
+          {/* ✅ VIDEO ADDED HERE */}
+          <source src="/secondvideo.mp4" type="video/mp4" />
+        </video>
+      </div>
+
+      {/* 2. CONTENT LAYER */}
+      <div className="relative z-20 flex flex-col items-center w-full max-w-5xl mt-[10vh]">
         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 1 }} className="flex items-center justify-center gap-2 mb-4 md:mb-8">
           <span className="px-4 py-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-400 text-[10px] tracking-[0.3em] font-bold uppercase backdrop-blur-md shadow-[0_0_15px_-5px_rgba(6,182,212,0.5)] flex items-center gap-2">
             <Truck size={12} /> Wholesale Only
           </span>
         </motion.div>
-        <div className="mt-8 relative w-full z-0"><ShimmerHeadline /></div>
+        
+        {/* BIG BRAND NAME OVERLAY */}
+        <div className="relative mt-4 mb-6">
+            <h1 className="text-8xl md:text-[12rem] font-black text-white font-hindi leading-[0.8] drop-shadow-2xl filter tracking-tighter select-none">
+                <span className="text-cyan-400">जल</span>sa
+            </h1>
+            <div className="text-xl md:text-3xl font-light text-slate-300 tracking-[0.5em] uppercase mt-4">
+                Premium Hydration
+            </div>
+        </div>
+
         <Reveal direction="up" delay={0.2}>
-          <p className="mt-12 text-slate-400 text-sm md:text-lg max-w-xs md:max-w-md mx-auto font-light leading-relaxed relative z-20 backdrop-blur-sm bg-slate-950/30 p-4 rounded-xl">
-            Direct from Mokampura Factory. <span className="block mt-2 text-cyan-400 font-medium">Book Full Truck Loads (FTL) or Wholesale Crates.</span>
+          <p className="mt-8 text-slate-300 text-sm md:text-lg max-w-lg mx-auto font-light leading-relaxed relative z-20 backdrop-blur-md bg-white/5 p-6 rounded-2xl border border-white/10">
+            Rajasthan's Purest Water. <span className="block mt-2 text-cyan-400 font-medium">Direct from Factory to Your Store.</span>
           </p>
         </Reveal>
+        
         <Reveal direction="up" delay={0.4}>
           <div className="mt-10 md:mt-12 flex gap-4 relative z-20">
             <LuxuryButton primary onClick={openPartnerModal} icon={ArrowRight}>Start Distributorship</LuxuryButton>
           </div>
         </Reveal>
       </div>
+
       <motion.div animate={{ y: [0, 10, 0] }} transition={{ repeat: Infinity, duration: 2 }} className="absolute bottom-28 md:bottom-10 left-1/2 -translate-x-1/2 text-white/30 z-10">
         <ChevronDown size={16} />
       </motion.div>
@@ -914,7 +923,7 @@ export default function App() {
 
     const newSocket = io(API_URL);
     newSocket.on('connect', () => console.log('🟢 Socket Connected'));
-     
+      
     newSocket.on('stock_updated', (updatedProduct) => {
         setProducts(prev => {
              if(updatedProduct.deleted) {
@@ -1193,6 +1202,7 @@ export default function App() {
 
         {/* Main Content */}
         <main className="relative pb-0">
+            {/* ✅ PASSING THE NEW HERO SECTION HERE */}
             <HeroSection openPartnerModal={() => setPartnerOpen(true)} />
 
             <div className="bg-cyan-500 text-slate-950 py-4 overflow-hidden whitespace-nowrap relative z-20 rotate-[-2deg] scale-110 shadow-2xl origin-left my-20 border-y-4 border-slate-950">
