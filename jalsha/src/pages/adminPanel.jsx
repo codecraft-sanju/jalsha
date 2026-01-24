@@ -5,9 +5,13 @@ import {
   Package, CheckCircle, Wallet, MessageCircle, 
   Settings, Power, BadgePercent, LogOut, 
   LayoutDashboard, Layers, BookOpen, FileText, 
-  MapPin, UploadCloud, Loader2, Image as ImageIcon, X 
+  MapPin, UploadCloud, Loader2, Image as ImageIcon, X,
+  HelpCircle // ✅ Added HelpCircle Icon
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
+// ✅ Ensure this path points to your new SystemManual.jsx file
+// If adminPanel.jsx is in 'src/pages/', use './SystemManual'
+import SystemManual from '../pages/SystemManual'; 
 
 // --- CONFIGURATION ---
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
@@ -328,6 +332,7 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
   const [loadingAction, setLoadingAction] = useState(null);
   const [showProductModal, setShowProductModal] = useState(false);
   const [showDealerModal, setShowDealerModal] = useState(false);
+  const [showManual, setShowManual] = useState(false); // ✅ New State for Manual
   const [editingProduct, setEditingProduct] = useState(null);
   const [applications, setApplications] = useState([]);
   const token = localStorage.getItem('adminToken');
@@ -434,6 +439,9 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
   return (
     <div className="min-h-screen bg-slate-950 pb-24 text-slate-100 font-sans">
       
+      {/* ✅ MANUAL COMPONENT RENDER */}
+      {showManual && <SystemManual onClose={() => setShowManual(false)} />}
+
       <ProductModal 
         isOpen={showProductModal} 
         onClose={() => setShowProductModal(false)} 
@@ -457,9 +465,24 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
             <span className="text-[10px] text-slate-400 uppercase tracking-wider">Mokampura Factory</span>
           </div>
         </div>
-        <button onClick={onLogout} className="p-2 bg-red-500/10 text-red-400 rounded-full hover:bg-red-500/20">
-          <LogOut size={18} />
-        </button>
+
+        {/* ✅ Header Actions including Help Button */}
+        <div className="flex items-center gap-3">
+             <button 
+               onClick={() => setShowManual(true)} 
+               className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-blue-600/20 text-blue-400 text-xs font-bold uppercase rounded-full hover:bg-blue-600 hover:text-white transition-all border border-blue-500/30"
+             >
+                <HelpCircle size={14} /> Help Guide
+             </button>
+             {/* Mobile Help Icon */}
+             <button onClick={() => setShowManual(true)} className="md:hidden p-2 text-blue-400 hover:bg-blue-600/20 rounded-full">
+                <HelpCircle size={20} />
+             </button>
+
+            <button onClick={onLogout} className="p-2 bg-red-500/10 text-red-400 rounded-full hover:bg-red-500/20">
+              <LogOut size={18} />
+            </button>
+        </div>
       </header>
 
       <main className="p-6 space-y-8 max-w-lg mx-auto">
