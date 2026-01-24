@@ -1,19 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-// ✅ FIXED: Removed 'Spinner' from imports, using 'Loader2' for the icon
 import { 
   Plus, Edit, Save, Trash2, UserPlus, 
   Package, CheckCircle, Wallet, MessageCircle, 
   Settings, Power, BadgePercent, LogOut, 
   LayoutDashboard, Layers, BookOpen, FileText, 
-  MapPin, UploadCloud, Loader2
+  MapPin, UploadCloud, Loader2, Image as ImageIcon, X 
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
-// Config
+// --- CONFIGURATION ---
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
-// --- LOCAL HELPERS & MODALS ---
+// 🔹 TODO: Replace these with your actual Cloudinary details
+const CLOUDINARY_UPLOAD_PRESET = "salon_preset"; 
+const CLOUDINARY_CLOUD_NAME = "dvoenforj";    // Your Cloud Name
+
+// --- LOCAL HELPERS ---
 
 const SpinnerIcon = ({ size = 18, color = "text-white/80" }) => (
   <motion.div 
@@ -25,25 +28,89 @@ const SpinnerIcon = ({ size = 18, color = "text-white/80" }) => (
   </motion.div>
 );
 
+// --- SMART SUGGESTIONS DATA ---
+const SUGGESTIONS = {
+    sizes: ["20 Litre Jar", "1 Litre Bottle", "500ml Bottle", "250ml Pouch", "Chilled Camper"],
+    tags: ["Best Seller", "New Arrival", "Wedding Special", "Office Pack", "Economy"],
+    descriptions: [
+        "Premium RO purified water with added minerals.",
+        "Perfect for weddings and large gatherings.",
+        "Compact size, easy to carry for events.",
+        "ISI Certified, hygienic and safe packaging.",
+        "High margin product for daily wholesale."
+    ]
+};
+
+const SuggestionChip = ({ text, onClick }) => (
+    <button 
+        type="button"
+        onClick={() => onClick(text)}
+        className="text-[10px] bg-slate-800 border border-slate-700 text-slate-400 px-2 py-1 rounded-md hover:bg-cyan-500/20 hover:text-cyan-400 hover:border-cyan-500/50 transition-all whitespace-nowrap"
+    >
+        {text}
+    </button>
+);
+
+// --- MODALS ---
+
 const ProductModal = ({ isOpen, onClose, product, onSave }) => {
     const [formData, setFormData] = useState({
         size: '', pricePerCrate: '', stock: '', crateSize: '',
         img: '', desc: '', tag: '', lowStockThreshold: '50'
     });
     const [submitting, setSubmitting] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const fileInputRef = useRef(null);
 
     useEffect(() => {
         if (product) {
             setFormData(product);
         } else {
-            setFormData({ size: '', pricePerCrate: '', stock: '0', crateSize: '12', img: './1litre.png', desc: '', tag: '', lowStockThreshold: '50' });
+            setFormData({ size: '', pricePerCrate: '', stock: '0', crateSize: '12', img: '', desc: '', tag: '', lowStockThreshold: '50' });
         }
     }, [product]);
+
+    // 🔹 Cloudinary Upload Logic
+    const handleImageUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        setUploading(true);
+        const data = new FormData();
+        data.append("file", file);
+        data.append("upload_preset", CLOUDINARY_UPLOAD_PRESET); 
+        data.append("cloud_name", CLOUDINARY_CLOUD_NAME);
+
+        try {
+            const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
+                method: "POST",
+                body: data
+            });
+            const uploadedImage = await res.json();
+            
+            if (uploadedImage.secure_url) {
+                setFormData({ ...formData, img: uploadedImage.secure_url });
+                toast.success("Image Uploaded Successfully!");
+            } else {
+                throw new Error("Upload failed");
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error("Image Upload Failed. Check Cloudinary Config.");
+        } finally {
+            setUploading(false);
+        }
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         setSubmitting(true);
-        await onSave(formData);
+        // Fallback image if none provided
+        const finalData = {
+            ...formData,
+            img: formData.img || "https://placehold.co/400x600/1e293b/ffffff?text=No+Image"
+        };
+        await onSave(finalData);
         setSubmitting(false);
         onClose();
     };
@@ -53,15 +120,75 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
             {isOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-black/90 backdrop-blur-md" />
-                    <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }} className="bg-[#121212] border border-cyan-500/50 w-full max-w-lg rounded-2xl p-6 relative z-10 shadow-2xl max-h-[90vh] overflow-y-auto">
-                        <h2 className="text-xl font-serif text-cyan-400 mb-6 flex items-center gap-2">
-                            {product ? <><Edit size={20}/> Edit Product</> : <><Plus size={20}/> Add New Product</>}
-                        </h2>
-                        <form onSubmit={handleSubmit} className="space-y-4">
+                    <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }} className="bg-[#121212] border border-cyan-500/50 w-full max-w-lg rounded-2xl p-6 relative z-10 shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-xl font-serif text-cyan-400 flex items-center gap-2">
+                                {product ? <><Edit size={20}/> Edit Product</> : <><Plus size={20}/> Add New Product</>}
+                            </h2>
+                            <button onClick={onClose}><X className="text-slate-500 hover:text-white" /></button>
+                        </div>
+
+                        <form onSubmit={handleSubmit} className="space-y-5">
+                            
+                            {/* Image Uploader Section */}
+                            <div className="flex items-start gap-4 p-4 bg-slate-900/50 rounded-xl border border-white/5 border-dashed group hover:border-cyan-500/30 transition-colors">
+                                <div className="w-20 h-24 bg-black rounded-lg overflow-hidden flex items-center justify-center border border-white/10 relative">
+                                    {uploading ? (
+                                        <SpinnerIcon size={24} color="text-cyan-500" />
+                                    ) : formData.img ? (
+                                        <img src={formData.img} alt="Preview" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <ImageIcon className="text-slate-600" />
+                                    )}
+                                </div>
+                                <div className="flex-1">
+                                    <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest block mb-2">Product Image</label>
+                                    <input 
+                                        type="file" 
+                                        ref={fileInputRef} 
+                                        onChange={handleImageUpload} 
+                                        className="hidden" 
+                                        accept="image/*"
+                                    />
+                                    <div className="flex gap-2">
+                                        <button 
+                                            type="button" 
+                                            onClick={() => fileInputRef.current.click()} 
+                                            className="bg-cyan-600/20 text-cyan-400 px-3 py-2 rounded-lg text-xs font-bold hover:bg-cyan-600 hover:text-white transition-colors flex items-center gap-2"
+                                            disabled={uploading}
+                                        >
+                                            <UploadCloud size={14}/> {formData.img ? 'Change Image' : 'Upload Image'}
+                                        </button>
+                                        {formData.img && (
+                                            <button 
+                                                type="button" 
+                                                onClick={() => setFormData({...formData, img: ''})} 
+                                                className="bg-red-500/10 text-red-400 px-3 py-2 rounded-lg text-xs font-bold hover:bg-red-500 hover:text-white transition-colors"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        )}
+                                    </div>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Or paste URL here..." 
+                                        value={formData.img} 
+                                        onChange={e => setFormData({...formData, img: e.target.value})} 
+                                        className="w-full bg-transparent text-xs text-slate-500 mt-2 focus:text-white outline-none border-b border-transparent focus:border-cyan-500/50"
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Product Name & Suggestions */}
                             <div>
                                 <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Product Name (Size)</label>
                                 <input type="text" placeholder="e.g. 1 Litre Bottle" value={formData.size} onChange={e => setFormData({...formData, size: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none mt-1"/>
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                    {SUGGESTIONS.sizes.map(s => <SuggestionChip key={s} text={s} onClick={(val) => setFormData({...formData, size: val})} />)}
+                                </div>
                             </div>
+
+                            {/* Numbers Grid */}
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Price / Crate (₹)</label>
@@ -71,8 +198,6 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
                                     <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Stock Qty</label>
                                     <input type="number" placeholder="Stock" value={formData.stock} onChange={e => setFormData({...formData, stock: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none mt-1"/>
                                 </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Bottles per Crate</label>
                                     <input type="number" placeholder="Qty" value={formData.crateSize} onChange={e => setFormData({...formData, crateSize: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none mt-1"/>
@@ -82,13 +207,17 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
                                     <input type="number" placeholder="e.g. 50" value={formData.lowStockThreshold} onChange={e => setFormData({...formData, lowStockThreshold: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none mt-1"/>
                                 </div>
                             </div>
+
+                            {/* Tag & Suggestions */}
                             <div>
-                                <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Tag & Image</label>
-                                <div className="grid grid-cols-2 gap-4 mt-1">
-                                    <input type="text" placeholder="Tag (e.g. Best Seller)" value={formData.tag} onChange={e => setFormData({...formData, tag: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none"/>
-                                    <input type="text" placeholder="Image URL (e.g. ./1litre.png)" value={formData.img} onChange={e => setFormData({...formData, img: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none"/>
+                                <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Marketing Tag</label>
+                                <input type="text" placeholder="Tag (e.g. Best Seller)" value={formData.tag} onChange={e => setFormData({...formData, tag: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none mt-1"/>
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                    {SUGGESTIONS.tags.map(t => <SuggestionChip key={t} text={t} onClick={(val) => setFormData({...formData, tag: val})} />)}
                                 </div>
                             </div>
+
+                            {/* Description & Suggestions */}
                             <div>
                                 <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Description</label>
                                 <textarea 
@@ -97,11 +226,19 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
                                     onChange={e => setFormData({...formData, desc: e.target.value})} 
                                     className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none h-24 resize-none mt-1"
                                 />
+                                <div className="flex flex-col gap-1 mt-2">
+                                    {SUGGESTIONS.descriptions.map((d, i) => (
+                                        <div key={i} onClick={() => setFormData({...formData, desc: d})} className="text-[10px] text-slate-500 hover:text-cyan-400 cursor-pointer truncate border-b border-white/5 py-1">
+                                            ✨ {d}
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
-                            <div className="flex gap-3 mt-4">
+
+                            <div className="flex gap-3 mt-4 pt-4 border-t border-white/10">
                                 <button type="button" onClick={onClose} className="flex-1 py-3 bg-white/5 text-gray-400 font-bold uppercase rounded-xl hover:bg-white/10 transition-colors">Cancel</button>
-                                <button type="submit" disabled={submitting} className="flex-1 bg-cyan-600 text-white font-bold uppercase py-3 rounded-xl hover:bg-cyan-500 transition-colors flex items-center justify-center gap-2">
-                                    {submitting ? <SpinnerIcon size={16}/> : <><Save size={16}/> {product ? 'Update' : 'Create'}</>}
+                                <button type="submit" disabled={submitting || uploading} className="flex-1 bg-cyan-600 text-white font-bold uppercase py-3 rounded-xl hover:bg-cyan-500 transition-colors flex items-center justify-center gap-2 shadow-[0_0_20px_-5px_rgba(6,182,212,0.5)]">
+                                    {submitting ? <SpinnerIcon size={16}/> : <><Save size={16}/> {product ? 'Update Product' : 'Save Product'}</>}
                                 </button>
                             </div>
                         </form>
@@ -134,7 +271,10 @@ const AddDealerModal = ({ isOpen, onClose, onSave }) => {
                     <form onSubmit={handleSubmit} className="space-y-4">
                         <input type="text" placeholder="Owner Name" required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none"/>
                         <input type="text" placeholder="Shop / Agency Name" required value={formData.shopName} onChange={e => setFormData({...formData, shopName: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none"/>
-                        <input type="text" placeholder="Location" required value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none"/>
+                        <div className="relative">
+                            <input type="text" placeholder="Location" required value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none"/>
+                             <div className="absolute right-3 top-3 text-slate-500"><MapPin size={16}/></div>
+                        </div>
                         <input type="tel" placeholder="Mobile Number" required value={formData.mobile} onChange={e => setFormData({...formData, mobile: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none"/>
                         <input type="text" placeholder="GST Number (Optional)" value={formData.gstin} onChange={e => setFormData({...formData, gstin: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none"/>
                         <div className="flex gap-3 pt-2">
@@ -209,14 +349,6 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
   const handleAddClick = () => {
       setEditingProduct(null);
       setShowProductModal(true);
-  };
-
-  const handleSyncDefaults = async () => {
-      if(window.confirm("Auto-fill inventory with default products?")) {
-          setLoadingAction('sync');
-          setLoadingAction(null);
-          toast.success("Please use Add Product button.");
-      }
   };
 
   const handleStockClick = async (id, newStock) => {
@@ -355,7 +487,7 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                   <motion.div initial={{opacity:0}} animate={{opacity:1}} className="mb-4 bg-blue-500/10 border border-blue-500/30 p-4 rounded-xl flex items-center justify-between">
                       <div className="text-xs text-blue-300">Inventory Empty.</div>
                       <button onClick={handleAddClick} className="text-xs bg-blue-600 text-white px-3 py-2 rounded-lg font-bold flex items-center gap-2">
-                          {loadingAction === 'sync' ? <SpinnerIcon size={12}/> : <><UploadCloud size={14}/> Add New</>}
+                          <UploadCloud size={14}/> Add New
                       </button>
                   </motion.div>
               )}
@@ -370,7 +502,7 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                     products.map((p, i) => (
                     <motion.div initial={{ x: -20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: i * 0.1 }} key={p._id || p.id} className="bg-slate-900 p-4 rounded-xl border border-white/5 flex items-center gap-4">
                         <div className="w-10 h-10 bg-white/5 rounded-lg p-1">
-                            <img src={p.img || p.imageUrl} className="w-full h-full object-contain" alt="" />
+                            <img src={p.img || p.imageUrl} className="w-full h-full object-contain" alt="" onError={(e) => e.target.src = "https://placehold.co/100?text=Bottle"} />
                         </div>
                         <div className="flex-1">
                             <div className="font-bold">{p.size}</div>
@@ -467,7 +599,9 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                     </div>
 
                     <div className="flex items-center gap-4">
-                        <img src={p.img || p.imageUrl} className="w-16 h-16 object-contain" alt="" />
+                        <div className="w-16 h-16 bg-white/5 rounded-xl p-2">
+                             <img src={p.img || p.imageUrl} className="w-full h-full object-contain" alt="" onError={(e) => e.target.src = "https://placehold.co/100?text=Bottle"} />
+                        </div>
                         <div>
                            <h3 className="text-lg font-bold">{p.size}</h3>
                            <div className="text-xs text-slate-500">Price: ₹{p.pricePerCrate}</div>
@@ -513,7 +647,7 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
 
               {safeDealers.length === 0 && (
                   <div className="text-center py-12 bg-slate-900/50 rounded-2xl border border-white/5 border-dashed">
-                      <div className="mx-auto text-slate-600 mb-3"><UserPlus size={32}/></div>
+                      <div className="mx-auto text-slate-600 mb-3 flex justify-center"><UserPlus size={32}/></div>
                       <p className="text-slate-500 text-sm">No active accounts found.</p>
                       <p className="text-slate-600 text-xs">Add a dealer to start tracking payments.</p>
                   </div>

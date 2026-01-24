@@ -16,15 +16,13 @@ import {
   Phone, Mail, MapPin, Award, Users, Clock,
   LogOut, CheckCircle, Lock, Loader2, Search,
   UserPlus, 
-  // ✅ FIXED: Added missing icons
   Settings, AlertCircle, Trash2 
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { Toaster, toast } from 'react-hot-toast';
 
-// --- IMPORT THE NEW ADMIN PANEL ---
-// Make sure this path matches where you saved AdminPanel.jsx
-import AdminView from './pages/adminPanel'; 
+// ✅ FIXED: Import path updated (Assuming adminPanel.jsx is in the same folder)
+import AdminView from './adminPanel'; 
 
 // --- CONFIGURATION & ASSETS ---
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
@@ -258,7 +256,9 @@ const ProductCard = ({ p, onUpdateCart, cartItem, index }) => {
         <div className="h-[55%] flex items-center justify-center bg-gradient-to-b from-slate-800 to-slate-900 relative p-6">
            <div className="absolute inset-0 bg-cyan-500/10 blur-3xl group-hover:bg-cyan-500/20 transition-colors duration-500" />
            <motion.img 
-             src={p.img || p.imageUrl} alt={p.size} 
+             // ✅ FIXED: Support for both 'img' (Cloudinary) and 'imageUrl' (Legacy)
+             src={p.img || p.imageUrl} 
+             alt={p.size} 
              className={`h-full w-auto object-contain drop-shadow-2xl z-10 ${isOutOfStock ? 'grayscale opacity-50' : ''}`}
              whileHover={!isOutOfStock ? { scale: 1.1, z: 50 } : {}}
              onError={(e) => {e.target.src = "https://placehold.co/200x400/000/FFF?text=Bottle"}}
@@ -429,7 +429,7 @@ const CartDrawer = ({ isOpen, onClose, cart, onCheckout, onUpdateCart }) => {
                 items.map((item) => (
                   <div key={item._id || item.id} className="bg-white/5 p-4 rounded-xl border border-white/5 flex justify-between items-center pr-2">
                     <div className="flex items-center gap-3">
-                      <img src={item.img} alt="mini" className="w-10 h-auto object-contain" />
+                      <img src={item.img || item.imageUrl} alt="mini" className="w-10 h-auto object-contain" onError={(e) => e.target.src = "https://placehold.co/50?text=B"} />
                       <div>
                         <div className="font-bold text-white text-sm">{item.size}</div>
                         <div className="text-xs text-cyan-400">{item.quantity} Crates</div>
@@ -836,7 +836,7 @@ export default function App() {
   const [products, setProducts] = useState([]); 
   const [orders, setOrders] = useState([]);
   const [dealers, setDealers] = useState([]); 
-  
+   
   const [cart, setCart] = useState(() => {
       try {
         const saved = localStorage.getItem('jalsa_cart');
@@ -914,7 +914,7 @@ export default function App() {
 
     const newSocket = io(API_URL);
     newSocket.on('connect', () => console.log('🟢 Socket Connected'));
-    
+     
     newSocket.on('stock_updated', (updatedProduct) => {
         setProducts(prev => {
              if(updatedProduct.deleted) {
