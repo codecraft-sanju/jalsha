@@ -6,10 +6,10 @@ const Dealer = require('../models/Dealer');
 // @route   POST /api/orders
 const createOrder = async (req, res) => {
   try {
-    // 1️⃣ 'customerMobile' ko req.body se extract karo
-    const { customerName, customerMobile, dealerId, items, totalAmount, paymentStatus } = req.body;
+    const { customerName, customerMobile, items, totalAmount, paymentStatus } = req.body;
+    let { dealerId } = req.body; // Let isliye use kiya taaki update kar sakein
 
-    // Validate Stock
+    // 1️⃣ Validate Stock (Stock hai ya nahi?)
     for (const item of items) {
         const product = await Product.findById(item.productId);
         if (!product || product.stock < item.quantity) {
@@ -17,12 +17,21 @@ const createOrder = async (req, res) => {
         }
     }
 
-    // 2️⃣ Order Create karte waqt customerMobile save karo
+    // 2️⃣ Automatic Dealer Link Logic (Khata ke liye zaroori)
+    // Agar dealerId nahi aayi, toh Mobile se dhundo
+    if (!dealerId) {
+        const existingDealer = await Dealer.findOne({ mobile: customerMobile });
+        if (existingDealer) {
+            dealerId = existingDealer._id; // Link kar diya
+        }
+    }
+
+    // 3️⃣ Create Order
     const newOrder = new Order({
         orderId: `#ORD-${Math.floor(100000 + Math.random() * 900000)}`,
         customerName,
-        customerMobile, // ✅ ADDED: Database me save hoga
-        dealerId: dealerId || null,
+        customerMobile,
+        dealerId: dealerId || null, // Link hone par ID, warna null
         items,
         totalAmount,
         paymentStatus: paymentStatus || 'Unpaid',
@@ -31,35 +40,42 @@ const createOrder = async (req, res) => {
 
     const savedOrder = await newOrder.save();
 
-    // 3. Deduct Stock & Notify
+    // 4️⃣ Deduct Stock & Notify
     for (const item of items) {
         const product = await Product.findById(item.productId);
-        product.stock -= item.quantity;
-        await product.save();
-        req.io.emit('stock_updated', product);
-    }
-
-    // 4. Ledger Update (Same as before)
-    if (dealerId && paymentStatus !== 'Paid') {
-        const dealer = await Dealer.findById(dealerId);
-        if (dealer) {
-            dealer.balance += totalAmount;
-            dealer.transactions.push({
-                amount: totalAmount,
-                type: 'Debit',
-                description: `Order ${savedOrder.orderId}`,
-                date: Date.now()
-            });
-            await dealer.save();
-            req.io.emit('dealer_updated', dealer);
+        if(product) {
+            product.stock -= item.quantity;
+            await product.save();
+            if(req.io) req.io.emit('stock_updated', product);
         }
     }
 
-    req.io.emit('new_order', savedOrder);
+    // 5️⃣ Ledger Update (Agar Dealer Link hua hai toh)
+    // Sirf tab update karo agar payment 'Paid' nahi hai (yani Udhaar hai)
+    if (dealerId && paymentStatus !== 'Paid') {
+        const dealer = await Dealer.findById(dealerId);
+        if (dealer) {
+            // Balance badhao (Udhaar)
+            dealer.balance += Number(totalAmount);
+            
+            // History me likho
+            dealer.transactions.push({
+                amount: Number(totalAmount),
+                type: 'Debit', // Maal gaya, Paisa lena baki hai
+                description: `Order ${savedOrder.orderId}`,
+                date: Date.now()
+            });
+            
+            await dealer.save();
+            if(req.io) req.io.emit('dealer_updated', dealer);
+        }
+    }
+
+    if(req.io) req.io.emit('new_order', savedOrder);
     res.status(201).json(savedOrder);
 
   } catch (err) {
-    console.error(err);
+    console.error("Order Create Error:", err);
     res.status(500).send('Server Error');
   }
 };
@@ -72,32 +88,37 @@ const getAllOrders = async (req, res) => {
         
         let query = {};
         
-        // ✅ Agar mobile number hai, toh filter karo (Customer View)
+        // ✅ Agar mobile number hai, toh filter karo (Customer Dashboard ke liye)
         if (mobile) {
             query.customerMobile = mobile; 
         }
-        // ✅ Agar mobile nahi hai, toh sab dikhao (Admin View)
+        // ✅ Agar mobile nahi hai, toh sab dikhao (Admin Panel ke liye)
 
         const orders = await Order.find(query)
-            .populate('dealerId', 'name mobile')
+            .populate('dealerId', 'name mobile shopName') // Dealer ki details bhi le aao
             .sort({ createdAt: -1 });
             
         res.json(orders);
     } catch (err) {
+        console.error(err);
         res.status(500).send('Server Error');
     }
 };
 
-// Update Status (No Change needed here)
+// @desc    Update Order Status
+// @route   PUT /api/orders/:id
 const updateOrderStatus = async (req, res) => {
   try {
     const { status, paymentStatus } = req.body;
+    
     const order = await Order.findByIdAndUpdate(
         req.params.id,
         { status, paymentStatus },
         { new: true }
     );
-    req.io.emit('order_status_updated', order);
+
+    if(req.io) req.io.emit('order_status_updated', order);
+    
     res.json(order);
   } catch (err) {
     res.status(500).send('Server Error');

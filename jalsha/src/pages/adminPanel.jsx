@@ -6,11 +6,10 @@ import {
   Settings, Power, BadgePercent, LogOut, 
   LayoutDashboard, Layers, BookOpen, FileText, 
   MapPin, UploadCloud, Loader2, Image as ImageIcon, X,
-  HelpCircle // ✅ Added HelpCircle Icon
+  HelpCircle 
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-// ✅ Ensure this path points to your new SystemManual.jsx file
-// If adminPanel.jsx is in 'src/pages/', use './SystemManual'
+
 import SystemManual from '../pages/SystemManual'; 
 
 // --- CONFIGURATION ---
@@ -57,10 +56,74 @@ const SuggestionChip = ({ text, onClick }) => (
 
 // --- MODALS ---
 
+// ✅ NEW: LEDGER HISTORY MODAL (KHATA BOOK)
+const LedgerModal = ({ isOpen, onClose, dealer }) => {
+    // Fallback if dealer data is loading
+    const history = dealer?.transactions || []; 
+
+    return (
+        <AnimatePresence>
+            {isOpen && dealer && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="absolute inset-0 bg-black/90 backdrop-blur-md" />
+                    <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }} className="bg-slate-900 border border-white/10 w-full max-w-2xl rounded-2xl p-6 relative z-10 shadow-2xl h-[80vh] flex flex-col">
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <h2 className="text-xl font-bold text-white">{dealer.shopName}</h2>
+                                <p className="text-xs text-slate-500">Owner: {dealer.name} | +91 {dealer.mobile}</p>
+                            </div>
+                            <button onClick={onClose}><X className="text-slate-400 hover:text-white" /></button>
+                        </div>
+
+                        <div className="flex-1 overflow-y-auto custom-scrollbar bg-black/20 rounded-xl border border-white/5">
+                            {history.length === 0 ? (
+                                <div className="text-center py-20 text-slate-500 text-sm">No transaction history found.</div>
+                            ) : (
+                                <table className="w-full text-left text-sm text-slate-400">
+                                    <thead className="text-xs uppercase bg-white/5 text-slate-300 sticky top-0 backdrop-blur-md">
+                                        <tr>
+                                            <th className="p-3">Date</th>
+                                            <th className="p-3">Description</th>
+                                            <th className="p-3 text-red-400 text-right">Debit (Due)</th>
+                                            <th className="p-3 text-green-400 text-right">Credit (Paid)</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-white/5">
+                                        {history.slice().reverse().map((h, i) => ( // Reverse to show latest first
+                                            <tr key={i} className="hover:bg-white/5 transition-colors">
+                                                <td className="p-3 text-xs">{new Date(h.date).toLocaleDateString()}</td>
+                                                <td className="p-3 text-white">{h.description}</td>
+                                                <td className="p-3 text-right text-red-400 font-mono">
+                                                    {h.type === 'Debit' ? `₹${h.amount}` : '-'}
+                                                </td>
+                                                <td className="p-3 text-right text-green-400 font-mono">
+                                                    {h.type === 'Credit' ? `₹${h.amount}` : '-'}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+
+                        <div className="mt-4 pt-4 border-t border-white/10 flex justify-between items-center">
+                             <span className="text-sm text-slate-500 uppercase tracking-wider">Current Net Balance</span>
+                             <span className={`text-2xl font-mono font-bold ${dealer.balance > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                                ₹{dealer.balance.toLocaleString()}
+                             </span>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
+        </AnimatePresence>
+    );
+};
+
 const ProductModal = ({ isOpen, onClose, product, onSave }) => {
     const [formData, setFormData] = useState({
         size: '', pricePerCrate: '', stock: '', crateSize: '',
-        img: '', desc: '', tag: '', lowStockThreshold: '50'
+        img: '', desc: '', tag: '', lowStockThreshold: '50',
+        bulkThreshold: '100', bulkPrice: '' // ✅ NEW DISCOUNT FIELDS
     });
     const [submitting, setSubmitting] = useState(false);
     const [uploading, setUploading] = useState(false);
@@ -70,7 +133,11 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
         if (product) {
             setFormData(product);
         } else {
-            setFormData({ size: '', pricePerCrate: '', stock: '0', crateSize: '12', img: '', desc: '', tag: '', lowStockThreshold: '50' });
+            setFormData({ 
+                size: '', pricePerCrate: '', stock: '0', crateSize: '12', 
+                img: '', desc: '', tag: '', lowStockThreshold: '50',
+                bulkThreshold: '100', bulkPrice: ''
+            });
         }
     }, [product, isOpen]);
 
@@ -109,7 +176,6 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setSubmitting(true);
-        // Fallback image if none provided
         const finalData = {
             ...formData,
             img: formData.img || "https://placehold.co/400x600/1e293b/ffffff?text=No+Image"
@@ -133,49 +199,19 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
                         </div>
 
                         <form onSubmit={handleSubmit} className="space-y-5">
-                            
-                            {/* --- IMAGE UPLOADER SECTION --- */}
+                            {/* IMAGE UPLOADER */}
                             <div className="flex flex-col gap-3 p-4 bg-slate-900/50 rounded-xl border border-white/5 border-dashed group hover:border-cyan-500/30 transition-colors">
                                 <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest block">Product Image</label>
-                                
                                 <div className="flex items-center gap-4">
-                                    {/* Preview Box */}
                                     <div className="w-24 h-24 bg-black rounded-lg overflow-hidden flex items-center justify-center border border-white/10 shrink-0 relative">
-                                        {uploading ? (
-                                            <SpinnerIcon size={24} color="text-cyan-500" />
-                                        ) : formData.img ? (
-                                            <img src={formData.img} alt="Preview" className="w-full h-full object-cover" />
-                                        ) : (
-                                            <ImageIcon className="text-slate-600" />
-                                        )}
+                                        {uploading ? <SpinnerIcon size={24} color="text-cyan-500" /> : formData.img ? <img src={formData.img} alt="Preview" className="w-full h-full object-cover" /> : <ImageIcon className="text-slate-600" />}
                                     </div>
-
-                                    {/* Controls */}
                                     <div className="flex-1 flex flex-col gap-2">
-                                        <input 
-                                            type="file" 
-                                            ref={fileInputRef} 
-                                            onChange={handleImageUpload} 
-                                            className="hidden" 
-                                            accept="image/*"
-                                        />
-                                        
-                                        <button 
-                                            type="button" 
-                                            onClick={() => fileInputRef.current.click()} 
-                                            className="bg-cyan-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-cyan-500 transition-colors flex items-center justify-center gap-2 w-full shadow-lg shadow-cyan-500/20"
-                                            disabled={uploading}
-                                        >
+                                        <input type="file" ref={fileInputRef} onChange={handleImageUpload} className="hidden" accept="image/*" />
+                                        <button type="button" onClick={() => fileInputRef.current.click()} className="bg-cyan-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-cyan-500 transition-colors flex items-center justify-center gap-2 w-full shadow-lg shadow-cyan-500/20" disabled={uploading}>
                                             {uploading ? 'Uploading...' : <><UploadCloud size={16}/> Upload from Gallery</>}
                                         </button>
-
-                                        <input 
-                                            type="text" 
-                                            placeholder="...or paste image link" 
-                                            value={formData.img} 
-                                            onChange={e => setFormData({...formData, img: e.target.value})} 
-                                            className="w-full bg-transparent text-xs text-slate-500 focus:text-white outline-none border-b border-white/10 focus:border-cyan-500/50 py-1"
-                                        />
+                                        <input type="text" placeholder="...or paste image link" value={formData.img} onChange={e => setFormData({...formData, img: e.target.value})} className="w-full bg-transparent text-xs text-slate-500 focus:text-white outline-none border-b border-white/10 focus:border-cyan-500/50 py-1" />
                                     </div>
                                 </div>
                             </div>
@@ -209,6 +245,21 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
                                 </div>
                             </div>
 
+                            {/* ✅ NEW: DISCOUNT SYSTEM INPUTS */}
+                            <div className="bg-cyan-500/10 p-3 rounded-xl border border-cyan-500/30">
+                                <h4 className="text-xs font-bold text-cyan-400 mb-2 flex items-center gap-2"><BadgePercent size={14}/> Wholesale Discount Logic</h4>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-[10px] text-cyan-200/70 uppercase font-bold tracking-widest">Min Qty (Threshold)</label>
+                                        <input type="number" placeholder="e.g. 100" value={formData.bulkThreshold} onChange={e => setFormData({...formData, bulkThreshold: e.target.value})} className="w-full bg-[#050505] border border-cyan-500/30 p-2 rounded-lg text-white focus:border-cyan-500 outline-none mt-1"/>
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] text-cyan-200/70 uppercase font-bold tracking-widest">Discounted Price (₹)</label>
+                                        <input type="number" placeholder="e.g. 85" value={formData.bulkPrice} onChange={e => setFormData({...formData, bulkPrice: e.target.value})} className="w-full bg-[#050505] border border-cyan-500/30 p-2 rounded-lg text-white focus:border-cyan-500 outline-none mt-1"/>
+                                    </div>
+                                </div>
+                            </div>
+
                             {/* Tag */}
                             <div>
                                 <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Marketing Tag</label>
@@ -221,12 +272,7 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
                             {/* Description */}
                             <div>
                                 <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Description</label>
-                                <textarea 
-                                    placeholder="Product details..." 
-                                    value={formData.desc} 
-                                    onChange={e => setFormData({...formData, desc: e.target.value})} 
-                                    className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none h-24 resize-none mt-1"
-                                />
+                                <textarea placeholder="Product details..." value={formData.desc} onChange={e => setFormData({...formData, desc: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none h-24 resize-none mt-1" />
                                 <div className="flex flex-col gap-1 mt-2">
                                     {SUGGESTIONS.descriptions.map((d, i) => (
                                         <div key={i} onClick={() => setFormData({...formData, desc: d})} className="text-[10px] text-slate-500 hover:text-cyan-400 cursor-pointer truncate border-b border-white/5 py-1">
@@ -330,9 +376,16 @@ const NavButton = ({ icon: Icon, label, active, onClick, count }) => (
 const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, onDealerUpdate, onSaveProduct, onDeleteProduct, onAddDealer, onLogout }) => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [loadingAction, setLoadingAction] = useState(null);
+  
+  // Modals States
   const [showProductModal, setShowProductModal] = useState(false);
   const [showDealerModal, setShowDealerModal] = useState(false);
-  const [showManual, setShowManual] = useState(false); // ✅ New State for Manual
+  const [showManual, setShowManual] = useState(false);
+  
+  // Ledger History States
+  const [showLedger, setShowLedger] = useState(false); 
+  const [selectedDealer, setSelectedDealer] = useState(null);
+
   const [editingProduct, setEditingProduct] = useState(null);
   const [applications, setApplications] = useState([]);
   const token = localStorage.getItem('adminToken');
@@ -343,8 +396,6 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
   // --- CALCULATION LOGIC FOR BADGES ---
   const totalRevenue = safeOrders.reduce((acc, o) => acc + (o.totalAmount || 0), 0);
   const pendingCount = safeOrders.filter(o => o.status === 'Pending').length;
-  
-  // Logic for other badges
   const lowStockCount = products.filter(p => p.stock < (p.lowStockThreshold || 50)).length;
   const pendingRequestsCount = applications.filter(app => app.status !== 'Approved').length;
   const dueDealersCount = safeDealers.filter(d => d.balance > 0).length;
@@ -371,7 +422,9 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
       setLoadingAction(null);
   };
 
-  const handleDealerPay = async (id) => {
+  // ✅ Updated: Handles Payment (Credit)
+  const handleDealerPay = async (e, id) => {
+    e.stopPropagation(); // Stop clicking row from opening ledger
     const amount = prompt("Enter payment amount received (₹):");
     if (amount) {
       setLoadingAction(id);
@@ -381,7 +434,6 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
   };
 
   const handleDeleteClick = async (id) => {
-      // ✅ Confirmation added for safety
       if(window.confirm("Are you sure you want to delete this product forever?")) {
           await onDeleteProduct(id);
       }
@@ -395,7 +447,6 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
       } catch (err) { console.error("App Fetch Error", err); }
   };
 
-  // ✅ Fetch applications immediately so badge count is visible on load
   useEffect(() => {
       fetchApplications();
   }, []);
@@ -439,7 +490,6 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
   return (
     <div className="min-h-screen bg-slate-950 pb-24 text-slate-100 font-sans">
       
-      {/* ✅ MANUAL COMPONENT RENDER */}
       {showManual && <SystemManual onClose={() => setShowManual(false)} />}
 
       <ProductModal 
@@ -455,6 +505,13 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
          onSave={onAddDealer}
       />
 
+      {/* ✅ LEDGER MODAL INTEGRATION */}
+      <LedgerModal 
+         isOpen={showLedger} 
+         onClose={() => setShowLedger(false)} 
+         dealer={selectedDealer} 
+      />
+
       <header className="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-md border-b border-white/10 px-6 py-4 flex justify-between items-center">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-cyan-500 flex items-center justify-center text-slate-950">
@@ -466,7 +523,6 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
           </div>
         </div>
 
-        {/* ✅ Header Actions including Help Button */}
         <div className="flex items-center gap-3">
              <button 
                onClick={() => setShowManual(true)} 
@@ -474,7 +530,6 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
              >
                 <HelpCircle size={14} /> Help Guide
              </button>
-             {/* Mobile Help Icon */}
              <button onClick={() => setShowManual(true)} className="md:hidden p-2 text-blue-400 hover:bg-blue-600/20 rounded-full">
                 <HelpCircle size={20} />
              </button>
@@ -534,7 +589,6 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                             <div className="font-bold">{p.size}</div>
                             <div className="text-xs text-slate-500">Stock: {p.stock}</div>
                         </div>
-                        {/* ✅ Added Quick Actions for Dashboard too */}
                         <div className="flex items-center gap-2">
                             <button onClick={() => handleEditClick(p)} className="p-2 bg-white/5 text-cyan-400 rounded-lg hover:bg-white/10"><Edit size={14}/></button>
                             <button onClick={() => handleDeleteClick(p._id || p.id)} className="p-2 bg-white/5 text-red-400 rounded-lg hover:bg-white/10"><Trash2 size={14}/></button>
@@ -625,7 +679,6 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
               {products.map((p, i) => (
                  <motion.div initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: i * 0.1 }} key={p._id || p.id} className="bg-slate-900 p-6 rounded-2xl border border-white/5 flex flex-col gap-4 relative">
                     
-                    {/* ✅ Edit/Delete Buttons visible for mobile */}
                     <div className="absolute top-4 right-4 flex gap-2">
                         <button onClick={() => handleEditClick(p)} className="p-2 bg-white/5 rounded-full hover:bg-white/20 text-cyan-400 transition-colors"><Edit size={16}/></button>
                         <button onClick={() => handleDeleteClick(p._id || p.id)} className="p-2 bg-white/5 rounded-full hover:bg-red-500/20 text-red-400 transition-colors"><Trash2 size={16}/></button>
@@ -638,6 +691,12 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                         <div>
                            <h3 className="text-lg font-bold">{p.size}</h3>
                            <div className="text-xs text-slate-500">Price: ₹{p.pricePerCrate}</div>
+                           {/* Discount Badge */}
+                           {p.bulkThreshold && p.bulkPrice && (
+                               <div className="mt-1 text-[9px] bg-green-500/20 text-green-400 px-2 py-0.5 rounded border border-green-500/30 w-fit">
+                                   Bulk: ₹{p.bulkPrice} ({p.bulkThreshold}+)
+                               </div>
+                           )}
                         </div>
                     </div>
                     
@@ -687,10 +746,17 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
               )}
 
               {safeDealers.map((d, i) => (
-                 <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: i * 0.1 }} key={d._id || d.id} className="bg-slate-900 p-5 rounded-2xl border border-white/5 relative">
+                 <motion.div 
+                    initial={{ y: 20, opacity: 0 }} 
+                    animate={{ y: 0, opacity: 1 }} 
+                    transition={{ delay: i * 0.1 }} 
+                    key={d._id || d.id} 
+                    className="bg-slate-900 p-5 rounded-2xl border border-white/5 relative group cursor-pointer hover:border-cyan-500/30 transition-colors"
+                    onClick={() => { setSelectedDealer(d); setShowLedger(true); }} // ✅ Open Ledger on Click
+                 >
                     <div className="flex justify-between items-start mb-4">
                         <div>
-                           <div className="font-bold text-lg">{d.shopName}</div>
+                           <div className="font-bold text-lg text-white group-hover:text-cyan-400 transition-colors">{d.shopName}</div>
                            <div className="text-xs text-slate-400">{d.name}</div>
                            <div className="text-xs text-slate-500 flex items-center gap-1 mt-1">
                               <MapPin size={10} /> {d.location}
@@ -705,17 +771,19 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                     </div>
                     
                     <div className="flex items-center justify-between bg-black/20 p-3 rounded-xl">
-                       <div className="text-xs text-slate-400">Last Paid: <span className="text-white">{d.lastPaymentAmount ? `₹${d.lastPaymentAmount}` : 'N/A'}</span></div>
-                       <div className="w-32">
-                         <AdminActionButton 
-                            onClick={() => handleDealerPay(d._id)}
-                            loading={loadingAction === d._id}
-                            variant="outline"
-                            className="py-2 text-xs uppercase"
-                         >
-                            <Wallet size={12}/> Receive
-                         </AdminActionButton>
-                       </div>
+                        <div className="text-xs text-slate-400 flex items-center gap-2">
+                            <BookOpen size={14} className="text-slate-600"/> View History
+                        </div>
+                        <div className="w-32">
+                          <AdminActionButton 
+                             onClick={(e) => handleDealerPay(e, d._id)} // ✅ Pass event to stop bubbling
+                             loading={loadingAction === d._id}
+                             variant="outline"
+                             className="py-2 text-xs uppercase"
+                          >
+                             <Wallet size={12}/> Receive
+                          </AdminActionButton>
+                        </div>
                     </div>
                  </motion.div>
               ))}

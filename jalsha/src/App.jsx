@@ -6,7 +6,6 @@ import {
   useTransform, 
   useSpring, 
 } from 'framer-motion';
-// Fixed: Using core Lenis directly to avoid React 19 conflicts
 import Lenis from 'lenis';
 import { 
   Droplets, X, Menu, 
@@ -16,13 +15,14 @@ import {
   Phone, Mail, MapPin, Award, Users, Clock,
   LogOut, CheckCircle, Lock, Loader2, Search,
   UserPlus, 
-  Settings, AlertCircle, Trash2 
+  Settings, AlertCircle, Trash2, FileText 
 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { Toaster, toast } from 'react-hot-toast';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
-// ✅ FIXED: Ensure this path is correct based on your folder structure
-// Agar adminPanel.jsx same folder me hai toh: import AdminView from './adminPanel';
+// ✅ Ensure this path is correct
 import AdminView from './pages/adminPanel'; 
 
 // --- CONFIGURATION & ASSETS ---
@@ -30,6 +30,62 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 const WHATSAPP_NUMBER = import.meta.env.VITE_WHATSAPP_NUMBER || "919867165845";
 
 const NOISE_BG = "url('https://grainy-gradients.vercel.app/noise.svg')";
+
+// --- UTILITIES ---
+
+// ✅ INVOICE GENERATOR
+const generateInvoice = (order) => {
+  const doc = new jsPDF();
+  
+  doc.setFontSize(22);
+  doc.setTextColor(6, 182, 212);
+  doc.text("Jalsa Water Supply", 14, 20);
+  
+  doc.setFontSize(10);
+  doc.setTextColor(100);
+  doc.text("Plot No. 45, Industrial Area, Mokampura", 14, 26);
+  doc.text("GSTIN: 08AABCJ1234F1Z5 | Ph: +91 9867165845", 14, 31);
+
+  doc.setFontSize(12);
+  doc.setTextColor(0);
+  doc.text(`Invoice #${order.orderId}`, 14, 45);
+  doc.setFontSize(10);
+  doc.text(`Date: ${new Date(order.createdAt || Date.now()).toLocaleDateString()}`, 14, 51);
+  doc.text(`Customer: ${order.customerName}`, 14, 57);
+  doc.text(`Mobile: ${order.customerMobile}`, 14, 63);
+
+  const tableColumn = ["Item", "Size", "Qty", "Rate (Rs)", "Total (Rs)"];
+  const tableRows = [];
+
+  order.items.forEach(item => {
+    const itemData = [
+      item.productName || "Water Crate",
+      item.size,
+      item.quantity,
+      item.priceAtPurchase,
+      (item.quantity * item.priceAtPurchase).toLocaleString()
+    ];
+    tableRows.push(itemData);
+  });
+
+  doc.autoTable({
+    head: [tableColumn],
+    body: tableRows,
+    startY: 70,
+    theme: 'grid',
+    headStyles: { fillColor: [6, 182, 212] },
+  });
+
+  const finalY = doc.lastAutoTable.finalY + 10;
+  doc.setFontSize(14);
+  doc.setTextColor(0);
+  doc.text(`Total Amount: Rs. ${order.totalAmount.toLocaleString()}`, 14, finalY);
+  
+  doc.setFontSize(8);
+  doc.setTextColor(150);
+  doc.text("Thank you for your business!", 14, finalY + 20);
+  doc.save(`Invoice_${order.orderId}.pdf`);
+};
 
 // --- VISUAL MICRO-COMPONENTS ---
 
@@ -133,6 +189,28 @@ const FloatingBubbles = () => {
   );
 };
 
+// ✅ ADDED MISSING SPLASH LOADER
+const SplashLoader = () => (
+    <div className="fixed inset-0 bg-slate-950 z-[100] flex items-center justify-center">
+      <div className="flex flex-col items-center relative">
+        <motion.div initial={{ y: -100, opacity: 0, scale: 0.5 }} animate={{ y: 0, opacity: 1, scale: 1 }} transition={{ duration: 0.8, ease: "bounceOut" }} className="text-cyan-500 mb-6">
+          <Droplets size={80} fill="currentColor" />
+        </motion.div>
+        <motion.div initial={{ width: 0, height: 0, opacity: 0.8 }} animate={{ width: 200, height: 200, opacity: 0 }} transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut", delay: 0.5 }} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border border-cyan-500 rounded-full" />
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6, duration: 0.8 }} className="text-6xl font-black tracking-tighter text-white font-hindi flex items-center gap-1">
+          <span className="text-cyan-500">जल</span>sa
+        </motion.div>
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }} className="mt-4 text-[10px] text-slate-500 uppercase tracking-[0.4em]">Premium Hydration</motion.div>
+      </div>
+    </div>
+);
+
+const SocialIcon = ({ Icon }) => (
+   <a href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-slate-400 hover:bg-cyan-500 hover:text-white transition-all duration-300">
+      <Icon size={18} />
+   </a>
+);
+
 // --- CUSTOMER UI COMPONENTS ---
 
 const MobileDock = ({ itemCount, onOpenCart, onOpenMenu, onOpenDashboard }) => {
@@ -175,7 +253,6 @@ const MobileDock = ({ itemCount, onOpenCart, onOpenMenu, onOpenDashboard }) => {
   );
 };
 
-// ✅ UPDATED: Bottle set to z-[5] to float ABOVE video (z-0) but BELOW text (z-20)
 const ParallaxBottle = () => {
   const { scrollY } = useScroll();
   const smoothY = useSpring(scrollY, { 
@@ -187,7 +264,6 @@ const ParallaxBottle = () => {
   const rotate = useTransform(smoothY, [0, 500], [5, 0]); 
   const scale = useTransform(smoothY, [0, 500], [1.1, 0.9]); 
   
-  // Fade out slightly later so it stays visible longer
   const opacity = useTransform(smoothY, [800, 1400], [1, 0]);
     
   return (
@@ -211,6 +287,13 @@ const ProductCard = ({ p, onUpdateCart, cartItem, index }) => {
   const quantity = cartItem ? cartItem.quantity : 0;
   const isOutOfStock = p.stock <= 0;
   const isLowStock = p.stock < (p.lowStockThreshold || 50);
+
+  // Discount Logic
+  const hasDiscount = p.bulkThreshold && p.bulkPrice;
+  const currentPrice = (cartItem && hasDiscount && cartItem.quantity >= p.bulkThreshold) 
+    ? p.bulkPrice 
+    : p.pricePerCrate;
+  const isDiscountApplied = currentPrice < p.pricePerCrate;
 
   const handleIncrement = () => {
     if (quantity < p.stock) {
@@ -266,10 +349,27 @@ const ProductCard = ({ p, onUpdateCart, cartItem, index }) => {
             <div className="flex justify-between items-start mb-2">
               <h3 className="text-3xl font-bold text-white font-hindi">{p.size}</h3>
               <div className="text-right">
-                <span className="text-lg text-cyan-400 font-mono block">₹{p.pricePerCrate}</span>
+                {/* Dynamic Price */}
+                {isDiscountApplied ? (
+                    <>
+                        <span className="text-xs text-slate-500 line-through block">₹{p.pricePerCrate}</span>
+                        <span className="text-lg text-green-400 font-mono block animate-pulse">₹{currentPrice}</span>
+                    </>
+                ) : (
+                    <span className="text-lg text-cyan-400 font-mono block">₹{p.pricePerCrate}</span>
+                )}
                 <span className="text-[10px] text-slate-500 uppercase tracking-wider">Per Crate</span>
               </div>
             </div>
+            
+            {hasDiscount && (
+                <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-2 mb-3">
+                    <p className="text-[10px] text-green-400">
+                        ⚡ <strong>Bulk Offer:</strong> Buy {p.bulkThreshold}+ crates at ₹{p.bulkPrice} each!
+                    </p>
+                </div>
+            )}
+
             <p className="text-slate-400 text-sm leading-relaxed mb-4 line-clamp-2">{p.desc}</p>
             {isLowStock && !isOutOfStock && (
               <div className="text-orange-400 text-xs flex items-center gap-1 mb-2">
@@ -308,13 +408,12 @@ const ProductCard = ({ p, onUpdateCart, cartItem, index }) => {
 
 // --- REUSABLE SECTIONS ---
 
-// ✅ UPDATED HERO: Video is z-0, Bottle will float at z-5, Content at z-20
 const HeroSection = ({ openPartnerModal }) => (
     <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-4 pt-20 overflow-hidden">
       
-      {/* 1. VIDEO BACKGROUND LAYER - Pushed back */}
+      {/* 1. VIDEO BACKGROUND LAYER */}
       <div className="absolute inset-0 z-0 pointer-events-none">
-        <div className="absolute inset-0 bg-slate-950/60 z-10" /> {/* Slightly darker overlay to pop the bottle */}
+        <div className="absolute inset-0 bg-slate-950/60 z-10" /> 
         <video 
           autoPlay 
           muted 
@@ -326,7 +425,7 @@ const HeroSection = ({ openPartnerModal }) => (
         </video>
       </div>
 
-      {/* 2. CONTENT LAYER - Pushed forward */}
+      {/* 2. CONTENT LAYER */}
       <div className="relative z-20 flex flex-col items-center w-full max-w-5xl mt-[10vh]">
         <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ duration: 1 }} className="flex items-center justify-center gap-2 mb-4 md:mb-8">
           <span className="px-4 py-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-400 text-[10px] tracking-[0.3em] font-bold uppercase backdrop-blur-md shadow-[0_0_15px_-5px_rgba(6,182,212,0.5)] flex items-center gap-2">
@@ -334,7 +433,6 @@ const HeroSection = ({ openPartnerModal }) => (
           </span>
         </motion.div>
         
-        {/* BIG BRAND NAME OVERLAY */}
         <div className="relative mt-4 mb-6">
             <h1 className="text-8xl md:text-[12rem] font-black text-white font-hindi leading-[0.8] drop-shadow-2xl filter tracking-tighter select-none">
                 <span className="text-cyan-400">जल</span>sa
@@ -383,27 +481,6 @@ const FeatureTile = ({ icon: Icon, title, desc, delay }) => (
       <p className="text-sm text-slate-400">{desc}</p>
     </div>
   </Reveal>
-);
-
-const SplashLoader = () => (
-    <div className="fixed inset-0 bg-slate-950 z-[100] flex items-center justify-center">
-      <div className="flex flex-col items-center relative">
-        <motion.div initial={{ y: -100, opacity: 0, scale: 0.5 }} animate={{ y: 0, opacity: 1, scale: 1 }} transition={{ duration: 0.8, ease: "bounceOut" }} className="text-cyan-500 mb-6">
-          <Droplets size={80} fill="currentColor" />
-        </motion.div>
-        <motion.div initial={{ width: 0, height: 0, opacity: 0.8 }} animate={{ width: 200, height: 200, opacity: 0 }} transition={{ duration: 1.5, repeat: Infinity, ease: "easeOut", delay: 0.5 }} className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border border-cyan-500 rounded-full" />
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6, duration: 0.8 }} className="text-6xl font-black tracking-tighter text-white font-hindi flex items-center gap-1">
-          <span className="text-cyan-500">जल</span>sa
-        </motion.div>
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1 }} className="mt-4 text-[10px] text-slate-500 uppercase tracking-[0.4em]">Premium Hydration</motion.div>
-      </div>
-    </div>
-);
-
-const SocialIcon = ({ Icon }) => (
-   <a href="#" className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-slate-400 hover:bg-cyan-500 hover:text-white transition-all duration-300">
-      <Icon size={18} />
-   </a>
 );
 
 const CartDrawer = ({ isOpen, onClose, cart, onCheckout, onUpdateCart }) => {
@@ -545,7 +622,6 @@ const PartnerModal = ({ isOpen, onClose }) => {
                 throw new Error(data.msg || 'Submission failed');
             }
 
-            // ✅ CRITICAL FIX: Save mobile to localStorage so tracking works immediately
             localStorage.setItem('jalsa_customer_mobile', form.mobile);
 
             const message = `*New Dealership Application*\n\nName: ${form.name}\nShop: ${form.shop}\nMobile: ${form.mobile}\nCity: ${form.city}\nVolume: ${form.volume}\n\n*Reference ID:* ${data.id}`;
@@ -636,7 +712,6 @@ const CustomerDashboard = ({ isOpen, onClose }) => {
     }
   };
 
-  // ✅ CRITICAL FIX: Added 'mobile' to dependency array so dashboard refreshes if number changes
   useEffect(() => {
     if (isOpen && isLoggedIn && mobile) {
       fetchCustomerData(mobile);
@@ -747,8 +822,17 @@ const CustomerDashboard = ({ isOpen, onClose }) => {
                                 ))}
                               </div>
                               <div className="border-t border-white/10 pt-2 flex justify-between items-center">
-                                <span className="text-xs text-slate-500">Total Amount</span>
-                                <span className="text-cyan-400 font-mono font-bold">₹{order.totalAmount}</span>
+                                <div>
+                                    <span className="text-xs text-slate-500">Total Amount</span>
+                                    <div className="text-cyan-400 font-mono font-bold">₹{order.totalAmount}</div>
+                                </div>
+                                {/* ✅ DOWNLOAD INVOICE BUTTON */}
+                                <button 
+                                    onClick={() => generateInvoice(order)}
+                                    className="flex items-center gap-1 bg-slate-800 hover:bg-slate-700 text-white text-[10px] px-3 py-2 rounded-lg transition-colors border border-white/10"
+                                >
+                                    <FileText size={14} className="text-cyan-400"/> Invoice
+                                </button>
                               </div>
                             </div>
                           ))}
@@ -999,11 +1083,19 @@ export default function App() {
       toast("Logged out successfully");
   };
 
+  // ✅ UPDATED: HANDLE CART WITH DISCOUNT LOGIC
   const handleUpdateCart = (product, newQty) => {
     if (newQty > product.stock) {
       toast.error(`Only ${product.stock} crates available`);
       return;
     }
+
+    // Determine Active Price (Bulk vs Regular)
+    let activePrice = product.pricePerCrate;
+    if (product.bulkThreshold && newQty >= product.bulkThreshold && product.bulkPrice) {
+        activePrice = product.bulkPrice;
+    }
+
     const pid = product._id || product.id;
     setCart(prev => {
       const newCart = { ...prev };
@@ -1012,7 +1104,11 @@ export default function App() {
           toast('Removed from cart', { icon: '🗑️' });
       } else {
           const isAdd = (!prev[pid] || newQty > prev[pid].quantity);
-          newCart[pid] = { ...product, quantity: newQty };
+          newCart[pid] = { 
+              ...product, 
+              quantity: newQty,
+              pricePerCrate: activePrice // Store the specific price for this quantity
+          };
           if(isAdd) toast.success(`Added ${newQty} crates`);
       }
       return newCart;
@@ -1050,7 +1146,7 @@ export default function App() {
             const savedOrder = await res.json();
             let message = `*Wholesale Inquiry - जलsa Water*\n*Order ID:* ${savedOrder.orderId}\n\nI have placed an order via website:\n`;
             items.forEach(item => {
-                message += `🔹 ${item.size} x ${item.quantity} Crates\n`;
+                message += `🔹 ${item.size} x ${item.quantity} Crates (@ ₹${item.pricePerCrate})\n`;
             });
             message += `\n*Total Value: ₹${totalEstimate.toLocaleString()}*`;
             
@@ -1289,7 +1385,10 @@ export default function App() {
         
         <FullScreenMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} openPartner={() => { setMenuOpen(false); setPartnerOpen(true); }} />
         <PartnerModal isOpen={partnerOpen} onClose={() => setPartnerOpen(false)} />
+        
+        {/* ✅ UPDATED DASHBOARD WITH INVOICE BUTTON */}
         <CustomerDashboard isOpen={dashboardOpen} onClose={() => setDashboardOpen(false)} />
+        
         <LoginModal isOpen={loginOpen} onClose={() => setLoginOpen(false)} onLogin={handleLogin} />
 
         {/* Footer */}

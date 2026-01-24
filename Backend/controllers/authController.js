@@ -2,7 +2,7 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 
-// @desc    Login User (Admin/Manager/Driver)
+// @desc    Login User & Auto-Create Admin if not exists
 // @route   POST /api/auth/login
 const loginUser = async (req, res) => {
   const { email, password } = req.body;
@@ -11,15 +11,14 @@ const loginUser = async (req, res) => {
     // 1. Check if user exists
     let user = await User.findOne({ email });
 
-    // 🔥🔥🔥 AUTO-CREATE ADMIN LOGIC (Start) 🔥🔥🔥
-    // .env se credentials nikalo
+    // 🔥🔥🔥 AUTO-CREATE ADMIN LOGIC (Smart Move!) 🔥🔥🔥
     const adminEmail = process.env.ADMIN_EMAIL; 
     const adminPass = process.env.ADMIN_PASS;   
 
-    // Agar user nahi mila, aur login email wahi hai jo .env me hai -> Toh Admin Create karo
+    // Agar user DB me nahi hai, lekin email .env wala hai -> Admin bana do
     if (!user && email === adminEmail) {
         const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(adminPass, salt); // Password from .env
+        const hashedPassword = await bcrypt.hash(adminPass, salt);
         
         user = new User({
             name: 'Super Admin',
@@ -31,9 +30,8 @@ const loginUser = async (req, res) => {
         await user.save();
         console.log(`🆕 Admin (${adminEmail}) Auto-Created in Database!`);
     }
-    // 🔥🔥🔥 AUTO-CREATE ADMIN LOGIC (End) 🔥🔥🔥
+    // 🔥🔥🔥 END LOGIC 🔥🔥🔥
 
-    // Agar ab bhi user nahi hai (matlab koi aur email tha), toh error do
     if (!user) {
       return res.status(400).json({ msg: 'Invalid Credentials' });
     }
@@ -44,18 +42,18 @@ const loginUser = async (req, res) => {
       return res.status(400).json({ msg: 'Invalid Credentials' });
     }
 
-    // 3. Create Token with Role
+    // 3. Create Token
     const payload = {
       user: {
         id: user._id,
-        role: user.role // 'Admin', 'Manager', etc.
+        role: user.role
       }
     };
 
     jwt.sign(
       payload,
       process.env.JWT_SECRET,
-      { expiresIn: '24h' },
+      { expiresIn: '24h' }, // 24 ghante tak login rahega
       (err, token) => {
         if (err) throw err;
         res.json({ token, user: { id: user._id, name: user.name, role: user.role } });
@@ -67,4 +65,16 @@ const loginUser = async (req, res) => {
   }
 };
 
-module.exports = { loginUser };
+// @desc    Get Current User (Reload hone par data lane ke liye)
+// @route   GET /api/auth/user
+const getUser = async (req, res) => {
+    try {
+      const user = await User.findById(req.user.id).select('-password');
+      res.json(user);
+    } catch (err) {
+      console.error(err.message);
+      res.status(500).send('Server Error');
+    }
+};
+
+module.exports = { loginUser, getUser };

@@ -1,23 +1,33 @@
 const mongoose = require('mongoose');
 
 const productSchema = new mongoose.Schema({
-  size: { type: String, required: true }, // "1 Litre"
-  img: { type: String, required: true },
+  size: { type: String, required: true }, // e.g., "1 Litre", "500ml"
+  img: { type: String, required: true }, // Image URL
   
-  crateSize: { type: Number, required: true }, // 12 bottles
+  crateSize: { type: Number, required: true }, // 1 Carton/Peti mein kitni bottles hain
   
-  pricePerCrate: { type: Number, required: true }, // Selling Price
-  costPrice: { type: Number }, // Profit calculate karne ke liye (Optional but Good)
+  pricePerCrate: { type: Number, required: true }, // 1 Carton ka Regular Rate
+  costPrice: { type: Number }, // Aapko kitne me padta hai (Profit nikalne ke liye)
 
-  stock: { type: Number, default: 0 },
-  
-  // 🔥 New: Kab warning dikhani hai? (e.g., jab 50 crates bachein)
-  lowStockThreshold: { type: Number, default: 50 }, 
+  // ✅ DISCOUNT SYSTEM (Wholesale Rate)
+  bulkThreshold: { 
+    type: Number, 
+    default: 100, // Agar dealer 100+ Peti (Cartons) leta hai...
+    help: "Minimum cartons for wholesale rate"
+  },
+  bulkPrice: { 
+    type: Number, 
+    default: 0, // ...toh rate yeh lagega (e.g. 90 ki jagah 85)
+    help: "Discounted price per carton"
+  },
 
-  desc: { type: String },
-  tag: { type: String }, // "Best Seller"
+  stock: { type: Number, default: 0 }, // Total Cartons in Factory
+  lowStockThreshold: { type: Number, default: 50 }, // Warning level
+
+  desc: { type: String }, // e.g. "Wedding Special"
+  tag: { type: String }, 
   
-  isAvailable: { type: Boolean, default: true } // Stock 0 hone par bhi hide/show karne ke liye
+  isAvailable: { type: Boolean, default: true } 
 }, { timestamps: true });
 
 module.exports = mongoose.model('Product', productSchema);
