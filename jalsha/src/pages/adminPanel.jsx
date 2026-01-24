@@ -12,7 +12,7 @@ import { toast } from 'react-hot-toast';
 // --- CONFIGURATION ---
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
-// ✅ Cloudinary Credentials (Fixed based on your data)
+// ✅ Cloudinary Credentials
 const CLOUDINARY_UPLOAD_PRESET = "salon_preset"; 
 const CLOUDINARY_CLOUD_NAME = "dvoenforj";
 
@@ -68,9 +68,9 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
         } else {
             setFormData({ size: '', pricePerCrate: '', stock: '0', crateSize: '12', img: '', desc: '', tag: '', lowStockThreshold: '50' });
         }
-    }, [product]);
+    }, [product, isOpen]);
 
-    // 🔹 Cloudinary Upload Logic (Ye photo ko server pe bhejega)
+    // 🔹 Cloudinary Upload Logic
     const handleImageUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -130,7 +130,7 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
 
                         <form onSubmit={handleSubmit} className="space-y-5">
                             
-                            {/* --- IMAGE UPLOADER SECTION (Start) --- */}
+                            {/* --- IMAGE UPLOADER SECTION --- */}
                             <div className="flex flex-col gap-3 p-4 bg-slate-900/50 rounded-xl border border-white/5 border-dashed group hover:border-cyan-500/30 transition-colors">
                                 <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest block">Product Image</label>
                                 
@@ -148,7 +148,6 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
 
                                     {/* Controls */}
                                     <div className="flex-1 flex flex-col gap-2">
-                                        {/* Hidden File Input */}
                                         <input 
                                             type="file" 
                                             ref={fileInputRef} 
@@ -157,7 +156,6 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
                                             accept="image/*"
                                         />
                                         
-                                        {/* Main Upload Button */}
                                         <button 
                                             type="button" 
                                             onClick={() => fileInputRef.current.click()} 
@@ -167,7 +165,6 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
                                             {uploading ? 'Uploading...' : <><UploadCloud size={16}/> Upload from Gallery</>}
                                         </button>
 
-                                        {/* Manual URL Input (Secondary) */}
                                         <input 
                                             type="text" 
                                             placeholder="...or paste image link" 
@@ -178,7 +175,6 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
                                     </div>
                                 </div>
                             </div>
-                            {/* --- IMAGE UPLOADER SECTION (End) --- */}
 
                             {/* Product Name */}
                             <div>
@@ -374,7 +370,8 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
   };
 
   const handleDeleteClick = async (id) => {
-      if(window.confirm("Delete this product?")) {
+      // ✅ Confirmation added for safety
+      if(window.confirm("Are you sure you want to delete this product forever?")) {
           await onDeleteProduct(id);
       }
   }
@@ -509,8 +506,13 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
                             <div className="font-bold">{p.size}</div>
                             <div className="text-xs text-slate-500">Stock: {p.stock}</div>
                         </div>
-                        <div className={`text-sm font-bold ${p.stock < (p.lowStockThreshold || 50) ? 'text-red-400' : 'text-green-400'}`}>
-                            {p.stock} Crates
+                        {/* ✅ Added Quick Actions for Dashboard too */}
+                        <div className="flex items-center gap-2">
+                            <button onClick={() => handleEditClick(p)} className="p-2 bg-white/5 text-cyan-400 rounded-lg hover:bg-white/10"><Edit size={14}/></button>
+                            <button onClick={() => handleDeleteClick(p._id || p.id)} className="p-2 bg-white/5 text-red-400 rounded-lg hover:bg-white/10"><Trash2 size={14}/></button>
+                        </div>
+                        <div className={`text-sm font-bold min-w-[3rem] text-right ${p.stock < (p.lowStockThreshold || 50) ? 'text-red-400' : 'text-green-400'}`}>
+                            {p.stock}
                         </div>
                     </motion.div>
                     ))
@@ -593,10 +595,12 @@ const AdminView = ({ products, orders, dealers, onStockUpdate, onStatusUpdate, o
               {products.length === 0 && <div className="text-center text-slate-500 py-10">Inventory is empty. Add items.</div>}
 
               {products.map((p, i) => (
-                 <motion.div initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: i * 0.1 }} key={p._id || p.id} className="bg-slate-900 p-6 rounded-2xl border border-white/5 flex flex-col gap-4 relative group">
-                    <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => handleEditClick(p)} className="p-2 bg-white/10 rounded-full hover:bg-white/20 text-cyan-400"><Edit size={14}/></button>
-                        <button onClick={() => handleDeleteClick(p._id || p.id)} className="p-2 bg-white/10 rounded-full hover:bg-red-500/20 text-red-400"><Trash2 size={14}/></button>
+                 <motion.div initial={{ x: 20, opacity: 0 }} animate={{ x: 0, opacity: 1 }} transition={{ delay: i * 0.1 }} key={p._id || p.id} className="bg-slate-900 p-6 rounded-2xl border border-white/5 flex flex-col gap-4 relative">
+                    
+                    {/* ✅ Edit/Delete Buttons visible for mobile */}
+                    <div className="absolute top-4 right-4 flex gap-2">
+                        <button onClick={() => handleEditClick(p)} className="p-2 bg-white/5 rounded-full hover:bg-white/20 text-cyan-400 transition-colors"><Edit size={16}/></button>
+                        <button onClick={() => handleDeleteClick(p._id || p.id)} className="p-2 bg-white/5 rounded-full hover:bg-red-500/20 text-red-400 transition-colors"><Trash2 size={16}/></button>
                     </div>
 
                     <div className="flex items-center gap-4">
