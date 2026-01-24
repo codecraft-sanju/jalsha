@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const verifyAdmin = require('../middleware/authMiddleware');
+const verifyAdmin = require('../middleware/authMiddleware'); // Ensure file exists
 const { 
   getProducts, 
   createProduct, 
@@ -8,12 +8,12 @@ const {
   deleteProduct 
 } = require('../controllers/productController');
 
-// Public Route (For Website/App)
+// Public Route
 router.get('/', getProducts);
 
 // Admin Routes (Protected)
-router.post('/', verifyAdmin, createProduct); // Add Stock
-router.put('/:id', verifyAdmin, updateProduct); // Update Stock
-router.delete('/:id', verifyAdmin, deleteProduct); // Delete Item
+router.post('/', verifyAdmin, createProduct); 
+router.put('/:id', verifyAdmin, updateProduct); 
+router.delete('/:id', verifyAdmin, deleteProduct); 
 
 module.exports = router;
