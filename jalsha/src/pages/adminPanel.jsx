@@ -12,9 +12,9 @@ import { toast } from 'react-hot-toast';
 // --- CONFIGURATION ---
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
-// 🔹 TODO: Replace these with your actual Cloudinary details
+// ✅ Cloudinary Credentials (Fixed based on your data)
 const CLOUDINARY_UPLOAD_PRESET = "salon_preset"; 
-const CLOUDINARY_CLOUD_NAME = "dvoenforj";    // Your Cloud Name
+const CLOUDINARY_CLOUD_NAME = "dvoenforj";
 
 // --- LOCAL HELPERS ---
 
@@ -70,7 +70,7 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
         }
     }, [product]);
 
-    // 🔹 Cloudinary Upload Logic
+    // 🔹 Cloudinary Upload Logic (Ye photo ko server pe bhejega)
     const handleImageUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
@@ -96,7 +96,7 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
             }
         } catch (error) {
             console.error(error);
-            toast.error("Image Upload Failed. Check Cloudinary Config.");
+            toast.error("Upload Error. Check Internet connection.");
         } finally {
             setUploading(false);
         }
@@ -130,56 +130,57 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
 
                         <form onSubmit={handleSubmit} className="space-y-5">
                             
-                            {/* Image Uploader Section */}
-                            <div className="flex items-start gap-4 p-4 bg-slate-900/50 rounded-xl border border-white/5 border-dashed group hover:border-cyan-500/30 transition-colors">
-                                <div className="w-20 h-24 bg-black rounded-lg overflow-hidden flex items-center justify-center border border-white/10 relative">
-                                    {uploading ? (
-                                        <SpinnerIcon size={24} color="text-cyan-500" />
-                                    ) : formData.img ? (
-                                        <img src={formData.img} alt="Preview" className="w-full h-full object-cover" />
-                                    ) : (
-                                        <ImageIcon className="text-slate-600" />
-                                    )}
-                                </div>
-                                <div className="flex-1">
-                                    <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest block mb-2">Product Image</label>
-                                    <input 
-                                        type="file" 
-                                        ref={fileInputRef} 
-                                        onChange={handleImageUpload} 
-                                        className="hidden" 
-                                        accept="image/*"
-                                    />
-                                    <div className="flex gap-2">
+                            {/* --- IMAGE UPLOADER SECTION (Start) --- */}
+                            <div className="flex flex-col gap-3 p-4 bg-slate-900/50 rounded-xl border border-white/5 border-dashed group hover:border-cyan-500/30 transition-colors">
+                                <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest block">Product Image</label>
+                                
+                                <div className="flex items-center gap-4">
+                                    {/* Preview Box */}
+                                    <div className="w-24 h-24 bg-black rounded-lg overflow-hidden flex items-center justify-center border border-white/10 shrink-0 relative">
+                                        {uploading ? (
+                                            <SpinnerIcon size={24} color="text-cyan-500" />
+                                        ) : formData.img ? (
+                                            <img src={formData.img} alt="Preview" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <ImageIcon className="text-slate-600" />
+                                        )}
+                                    </div>
+
+                                    {/* Controls */}
+                                    <div className="flex-1 flex flex-col gap-2">
+                                        {/* Hidden File Input */}
+                                        <input 
+                                            type="file" 
+                                            ref={fileInputRef} 
+                                            onChange={handleImageUpload} 
+                                            className="hidden" 
+                                            accept="image/*"
+                                        />
+                                        
+                                        {/* Main Upload Button */}
                                         <button 
                                             type="button" 
                                             onClick={() => fileInputRef.current.click()} 
-                                            className="bg-cyan-600/20 text-cyan-400 px-3 py-2 rounded-lg text-xs font-bold hover:bg-cyan-600 hover:text-white transition-colors flex items-center gap-2"
+                                            className="bg-cyan-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-cyan-500 transition-colors flex items-center justify-center gap-2 w-full shadow-lg shadow-cyan-500/20"
                                             disabled={uploading}
                                         >
-                                            <UploadCloud size={14}/> {formData.img ? 'Change Image' : 'Upload Image'}
+                                            {uploading ? 'Uploading...' : <><UploadCloud size={16}/> Upload from Gallery</>}
                                         </button>
-                                        {formData.img && (
-                                            <button 
-                                                type="button" 
-                                                onClick={() => setFormData({...formData, img: ''})} 
-                                                className="bg-red-500/10 text-red-400 px-3 py-2 rounded-lg text-xs font-bold hover:bg-red-500 hover:text-white transition-colors"
-                                            >
-                                                <Trash2 size={14} />
-                                            </button>
-                                        )}
+
+                                        {/* Manual URL Input (Secondary) */}
+                                        <input 
+                                            type="text" 
+                                            placeholder="...or paste image link" 
+                                            value={formData.img} 
+                                            onChange={e => setFormData({...formData, img: e.target.value})} 
+                                            className="w-full bg-transparent text-xs text-slate-500 focus:text-white outline-none border-b border-white/10 focus:border-cyan-500/50 py-1"
+                                        />
                                     </div>
-                                    <input 
-                                        type="text" 
-                                        placeholder="Or paste URL here..." 
-                                        value={formData.img} 
-                                        onChange={e => setFormData({...formData, img: e.target.value})} 
-                                        className="w-full bg-transparent text-xs text-slate-500 mt-2 focus:text-white outline-none border-b border-transparent focus:border-cyan-500/50"
-                                    />
                                 </div>
                             </div>
+                            {/* --- IMAGE UPLOADER SECTION (End) --- */}
 
-                            {/* Product Name & Suggestions */}
+                            {/* Product Name */}
                             <div>
                                 <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Product Name (Size)</label>
                                 <input type="text" placeholder="e.g. 1 Litre Bottle" value={formData.size} onChange={e => setFormData({...formData, size: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none mt-1"/>
@@ -208,7 +209,7 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
                                 </div>
                             </div>
 
-                            {/* Tag & Suggestions */}
+                            {/* Tag */}
                             <div>
                                 <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Marketing Tag</label>
                                 <input type="text" placeholder="Tag (e.g. Best Seller)" value={formData.tag} onChange={e => setFormData({...formData, tag: e.target.value})} className="w-full bg-[#050505] border border-white/20 p-3 rounded-xl text-white focus:border-cyan-500 outline-none mt-1"/>
@@ -217,7 +218,7 @@ const ProductModal = ({ isOpen, onClose, product, onSave }) => {
                                 </div>
                             </div>
 
-                            {/* Description & Suggestions */}
+                            {/* Description */}
                             <div>
                                 <label className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Description</label>
                                 <textarea 

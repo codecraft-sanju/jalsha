@@ -22,7 +22,7 @@ import { io } from 'socket.io-client';
 import { Toaster, toast } from 'react-hot-toast';
 
 // ✅ FIXED: Import path updated (Assuming adminPanel.jsx is in the same folder)
-import AdminView from './adminPanel'; 
+import AdminView from './pages/adminPanel'; 
 
 // --- CONFIGURATION & ASSETS ---
 const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
